@@ -1,0 +1,718 @@
+/* --------------------------------------------------------------- 표 블록 */
+
+$handle: 14px;
+
+/*
+ * 표는 본문 단(.editor__page)보다 넓게 쓸 수 있다. 왼쪽은 본문에 맞추고
+ * 오른쪽으로만 화면 끝까지 늘어나므로, 열을 몇 개 더해도 화면을 가득 채우기
+ * 전까지는 가로 스크롤이 생기지 않는다. (행 추가는 폭을 바꾸지 않는다)
+ *
+ * 100vw 는 세로 스크롤바를 포함하므로 그만큼을 $bleed-gap 이 흡수한다.
+ */
+$bleed-gap: 24px;
+
+/* 알약이 테두리에 절반씩 걸치도록 표 안쪽으로 물리는 양. (부푼 알약 두께의 절반) */
+$straddle: 5px;
+
+.table-block {
+  position: relative;
+  margin: 6px 0;
+
+  &__scroll {
+    overflow-x: auto;
+    overflow-y: visible;
+    /* 손잡이가 왼쪽 바깥으로 나가므로 그만큼 자리를 비워둔다. */
+    padding: $handle + 4px 0 0 $handle + 4px;
+    margin-left: -($handle + 4px);
+
+    /*
+     * 음수 마진으로 본문 단 오른쪽 여백까지 넓힌다.
+     * = 가운데 정렬로 생긴 여백 + 페이지 좌우 패딩 - 화면 끝에 남길 간격
+     */
+    margin-right: calc(
+      #{$bleed-gap} - max(0px, (100vw - var(--page-width, 860px)) / 2) - var(--page-pad, 56px)
+    );
+  }
+
+  &__stack {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: max-content;
+  }
+
+  &__main {
+    display: flex;
+    align-items: stretch;
+  }
+
+  &__frame {
+    position: relative;
+    border-top: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+  }
+
+  /*
+   * 끌고 있는 행·열을 실제 셀 내용까지 그대로 띄워, 종이에서 한 줄 들어낸 것처럼 보이게 한다.
+   * 크기는 내용에 맞추고 너무 길면 잘라낸다.
+   */
+  &__ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+    z-index: 80;
+    display: flex;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--surface);
+    box-shadow: 0 0 0 1px var(--accent), 0 10px 28px rgba(15, 15, 15, 0.22);
+    opacity: 0.9;
+    /* 긴 행·열이 화면을 다 덮지 않도록 자른다. */
+    max-width: 340px;
+    max-height: 240px;
+  }
+
+  /* 행은 셀이 가로로, 열은 세로로 쌓인다. 잡은 축 방향으로만 커서에 중심을 맞춘다. */
+  &__ghost--row {
+    flex-direction: row;
+    transform: translate(12px, -50%);
+  }
+
+  &__ghost--col {
+    flex-direction: column;
+    transform: translate(-50%, 12px);
+  }
+
+  &__ghost-cell {
+    flex: none;
+    min-height: 33px;
+    padding: 5px 8px;
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__ghost--row &__ghost-cell {
+    border-right: 1px solid var(--border);
+  }
+
+  &__ghost--col &__ghost-cell {
+    border-bottom: 1px solid var(--border);
+  }
+
+  &__ghost-cell--header {
+    background: var(--bg-subtle);
+    font-weight: 600;
+  }
+
+  /* 열 경계 전체에 걸리는 리사이즈 존. 작은 버튼 대신 세로선 전체를 이벤트면적으로 늘린다. */
+  &__resizer-zone {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: col-resize;
+    touch-action: none;
+    z-index: 6;
+    background: transparent;
+    border-left: 1px solid transparent;
+
+    &:hover {
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+    }
+  }
+
+  /* ----------------------------------------------------------- 손잡이 */
+
+  /*
+   * 노션처럼 "넓은 히트 영역 + 가운데 작은 알약" 구조.
+   * 버튼은 행/열 전체를 덮어 잡기 쉽게 하고, 눈에 보이는 건 __grip 알약뿐이다.
+   */
+  &__handle {
+    display: grid;
+    /*
+     * 열 손잡이: 가로 가운데 + 아래에 붙인다. 패딩으로 내용 상자의 아래끝을
+     * 정확히 테두리 선에 맞추고, 알약은 transform 으로 절반 걸치게 한다.
+     * (버튼 상자는 테두리 안쪽까지 $straddle 만큼 뻗어 알약 전체가 눌린다)
+     */
+    place-items: end center;
+    padding: 0 0 $straddle;
+    border: none;
+    background: transparent;
+    opacity: 0;
+    cursor: grab;
+    touch-action: none;
+    transition: opacity 0.1s ease;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  /* 행 손잡이: 세로 가운데 + 오른쪽(= 표 왼쪽 테두리)에 붙인다. */
+  &__handle--row {
+    place-items: center end;
+    padding: 0 $straddle 0 0;
+  }
+
+  &__handle--corner {
+    place-items: center;
+    padding: 0;
+  }
+
+  /*
+   * 손잡이는 두 단계로 바뀐다.
+   *  - 평소: 테두리에 붙은 얇은 막대 (테두리가 굵어진 것처럼 보인다)
+   *  - 커서를 올리면: 잡이 점이 있는 알약으로 부풀어 오른다
+   */
+  &__grip {
+    display: block;
+    position: relative;
+    border-radius: 999px;
+    background: var(--border-strong);
+    transition: width 0.12s ease, height 0.12s ease, background 0.12s ease;
+
+    /* 점 그리드. 글리프 대신 CSS 로 그려서 폰트에 의존하지 않는다. */
+    &::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 2px;
+      height: 2px;
+      margin: -3px 0 0 -5px;
+      border-radius: 50%;
+      background: var(--surface);
+      opacity: 0;
+      transition: opacity 0.1s ease;
+      box-shadow:
+        4px 0 0 var(--surface),
+        8px 0 0 var(--surface),
+        0 4px 0 var(--surface),
+        4px 4px 0 var(--surface),
+        8px 4px 0 var(--surface);
+    }
+  }
+
+  /* 열 — 위 테두리에 절반 걸치는 가로 막대 */
+  &__grip--col {
+    width: 100%;
+    height: 3px;
+    /* 자기 높이의 절반만큼 내려 테두리 선을 가운데로 지나가게 한다. */
+    transform: translateY(50%);
+  }
+
+  /* 행 — 왼쪽 테두리에 절반 걸치는 세로 막대. 점 배치도 2×3 으로 돌린다. */
+  &__grip--row {
+    width: 3px;
+    height: 100%;
+    transform: translateX(50%);
+
+    &::before {
+      margin: -5px 0 0 -3px;
+      box-shadow:
+        4px 0 0 var(--surface),
+        0 4px 0 var(--surface),
+        4px 4px 0 var(--surface),
+        0 8px 0 var(--surface),
+        4px 8px 0 var(--surface);
+    }
+  }
+
+  &__handle:hover &__grip--col,
+  &__handle--on &__grip--col {
+    width: 26px;
+    height: 10px;
+  }
+
+  &__handle:hover &__grip--row,
+  &__handle--on &__grip--row {
+    width: 10px;
+    height: 26px;
+  }
+
+  &__handle:hover &__grip {
+    background: var(--text-faint);
+
+    &::before {
+      opacity: 1;
+    }
+  }
+
+  &__handle--on &__grip {
+    background: var(--accent);
+
+    &::before {
+      opacity: 1;
+    }
+  }
+
+  /* 모서리는 테두리 위가 아니라 바깥 꼭짓점에 있는 버튼이라 크기가 고정이다.
+     "표 옵션 메뉴"라서 잡이 점 대신 가로 3줄(≡)로 구분한다. */
+  &__grip--corner {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+
+    &::before {
+      width: 7px;
+      height: 1px;
+      border-radius: 0;
+      margin: -4px 0 0 -3.5px;
+      opacity: 1;
+      box-shadow:
+        0 3px 0 var(--surface),
+        0 6px 0 var(--surface);
+    }
+  }
+
+  /* 가리킨 행·열의 손잡이만 나타난다. (노션과 같은 방식) */
+  &__handle--show,
+  &__handle--on,
+  &__handle:focus-visible {
+    opacity: 1;
+    /* 보일 때만 이벤트를 받는다. 안 보이는 손잡이가 셀 클릭을 먹지 않도록. */
+    pointer-events: auto;
+  }
+
+  /* 모서리 버튼만 표 전체에 커서가 있으면 보인다. */
+  &:hover &__handle--corner {
+    opacity: 1;
+  }
+
+  /* 손잡이는 표 테두리에 붙여 둔다. */
+  &__corner-wrap {
+    position: absolute;
+    right: 100%;
+    bottom: 100%;
+    margin: 0 2px 2px 0;
+  }
+
+  &__handle--corner {
+    width: $handle;
+    height: $handle;
+    cursor: pointer;
+  }
+
+  /* ------------------------------------------------------- 열 손잡이 */
+
+  &__cols {
+    display: flex;
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    /* 알약이 테두리에 걸칠 수 있게 표 안쪽으로 물린다. */
+    margin-bottom: -$straddle;
+    height: $handle + $straddle;
+    overflow: visible;
+    z-index: 8;
+    /* 표 안쪽으로 물린 만큼 셀을 덮으므로, 보이는 손잡이에만 이벤트를 넘긴다. */
+    pointer-events: none;
+  }
+
+  &__col {
+    position: relative;
+    flex: none;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    padding-right: 1px;
+    /*
+     * 부모(__cols)가 pointer-events:none 이라, 손잡이가 아직 숨겨진(opacity:0) 상태에서는
+     * 이 영역에 마우스가 들어와도 히트테스트가 뒤에 깔린 __scroll 로 새어나가 hover 가 아예
+     * 안 걸리는 닭-달걀 문제가 있었다. 여기서 다시 켜서 "핸들로 바로 진입"해도 hover 가 잡히게 한다.
+     */
+    pointer-events: auto;
+
+    > .table-block__handle {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+
+  /* 열 경계선을 잡아 너비를 조절한다. */
+  &__resizer {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 7px;
+    height: calc(#{$handle} + 4px);
+    cursor: col-resize;
+    touch-action: none;
+    z-index: 3;
+    /* 손잡이 스트립이 pointer-events: none 이라 여기서 다시 켠다. */
+    pointer-events: auto;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 3px;
+      width: 1px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.1s ease;
+    }
+
+    &:hover::after {
+      opacity: 1;
+    }
+  }
+
+  /* ------------------------------------------------------- 행 손잡이 */
+  &__row {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+  }
+
+  &__row-handle-wrap {
+    position: absolute;
+    right: 100%;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    /* 알약이 테두리에 걸칠 수 있게 표 안쪽으로 물린다. */
+    margin-right: -$straddle;
+    overflow: visible;
+    z-index: 8;
+    /*
+     * 열 손잡이(__col)와 같은 이유로 auto 로 켠다: 이 영역이 none 이면 손잡이가 아직
+     * 숨겨진 상태에서 마우스가 여기로 바로 들어와도 히트테스트가 __scroll 로 새어나가서
+     * __row 의 hover 가 걸리지 않고, 그러면 손잡이가 영원히 안 보여 클릭도 못 하게 된다.
+     * (셀을 먼저 지나가야만 우연히 hover 가 걸려 보이던 문제 — 행 손잡이가 표 왼쪽 바깥의
+     * 빈 여백에 있어서 열보다 이 경로로 바로 접근하기 쉬워 특히 잘 드러난다)
+     */
+    pointer-events: auto;
+  }
+
+  &__handle--row {
+    width: $handle + $straddle;
+    height: 100%;
+  }
+
+  &__row--dragging {
+    opacity: 0.5;
+  }
+
+  /* ------------------------------------------------------ 선택 표시 */
+
+  /* 메뉴를 연 행·열은 파란 테두리로 감싼다. */
+  &__col-outline {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    margin-left: -1px;
+    border: 2px solid var(--accent);
+    border-radius: 3px;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  &__row--selected::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -1px;
+    right: 0;
+    border: 2px solid var(--accent);
+    border-radius: 3px;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  /* ------------------------------------------------------------- 셀 */
+
+  &__cell {
+    flex: none;
+    position: relative;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 5px 8px;
+    min-height: 33px;
+    display: flex;
+    align-items: flex-start;
+
+    &:focus-within {
+      box-shadow: inset 0 0 0 2px var(--accent);
+    }
+  }
+
+  &__cell--header {
+    background: var(--bg-subtle);
+  }
+
+  &__cell--dragging {
+    opacity: 0.5;
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    resize: none;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+    font-size: 14.5px;
+    line-height: 1.5;
+
+    &::placeholder {
+      color: var(--text-faint);
+    }
+  }
+
+  &__input--header {
+    font-weight: 600;
+  }
+
+  /* ------------------------------------------------------- 추가 버튼 */
+
+  &__add {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-faint);
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    opacity: 0;
+    transition: opacity 0.1s ease, background 0.1s ease;
+
+    &:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+  }
+
+  &:hover &__add {
+    opacity: 1;
+  }
+
+  &__add--col {
+    width: 18px;
+    margin-left: 4px;
+    align-self: stretch;
+  }
+
+  &__add--row {
+    height: 18px;
+    margin-top: 4px;
+  }
+
+  /* --------------------------------------------------------- 삽입선 */
+
+  &__drop-col {
+    height : 100%;
+    position: absolute;
+    top: 0px;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    border-radius: 2px;
+    background: var(--accent);
+    pointer-events: none;
+    z-index: 4;
+  }
+
+  &__row--drop-before::before,
+  &__row--drop-after::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+    pointer-events: none;
+    z-index: 4;
+  }
+
+  &__row--drop-before::before {
+    top: -1px;
+  }
+
+  &__row--drop-after::after {
+    bottom: -1px;
+  }
+
+  /* ----------------------------------------------------------- 메뉴 */
+
+  /* 가로 스크롤 컨테이너에 잘리지 않도록 손잡이 좌표 기준 fixed 로 띄운다. */
+  &__menu {
+    position: fixed;
+    z-index: 60;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    padding: 4px;
+    min-width: 148px;
+    display: flex;
+    flex-direction: column;
+
+    button {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      background: transparent;
+      text-align: left;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13.5px;
+      white-space: nowrap;
+
+      &:hover:not(:disabled) {
+        background: var(--bg-hover);
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  &__check {
+    display: inline-block;
+    width: 12px;
+    color: var(--accent);
+  }
+
+  &__menu-danger:hover:not(:disabled) {
+    color: var(--danger);
+  }
+
+  /* 메뉴 항목 왼쪽 아이콘. 텍스트와 간격은 __menu button 의 gap 이 잡아준다. */
+  &__menu-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    flex: none;
+    color: var(--text-faint);
+  }
+
+  /* 오른쪽 끝에 붙이는 부가 요소(단축키 힌트, 서브메뉴 화살표, 토글) 공통 */
+  &__menu-shortcut,
+  &__menu-chevron {
+    margin-left: auto;
+    color: var(--text-faint);
+  }
+
+  &__menu-shortcut {
+    font-size: 12px;
+  }
+
+  &__menu-chevron {
+    display: flex;
+    align-items: center;
+  }
+
+  /* 항목 그룹 사이 구분선 */
+  &__menu-sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--border);
+  }
+
+  /* 토글 스위치 */
+  &__switch {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    width: 26px;
+    height: 15px;
+    padding: 2px;
+    border-radius: 999px;
+    background: var(--border-strong);
+    transition: background 0.12s ease;
+    flex: none;
+  }
+
+  &__switch-thumb {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--surface);
+    transition: transform 0.12s ease;
+  }
+
+  &__switch--on {
+    background: var(--accent);
+
+    .table-block__switch-thumb {
+      transform: translateX(11px);
+    }
+  }
+
+  /* 색상 선택 아코디언 */
+  &__menu-colors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 10px 6px;
+
+    /*
+     * .table-block__menu button 규칙(타입 선택자 포함)보다 우선해야 해서
+     * 여기서는 부모 클래스까지 붙여 detail 을 높인다.
+     */
+    .table-block__color-swatch {
+      display: block;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      cursor: pointer;
+
+      &:hover {
+        transform: scale(1.08);
+      }
+
+      &.table-block__color-swatch--on {
+        box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+      }
+    }
+  }
+}
+
+/* 드래그·리사이즈 중에는 텍스트 선택이 방해되지 않게 한다. */
+body.is-table-dragging,
+body.is-table-resizing {
+  user-select: none;
+
+  /*
+   * 드래그 중에는 손잡이를 하나도 띄우지 않는다.
+   * 평소 손잡이가 테두리에 걸친 막대 모양이라, 다 켜면 표 테두리가 굵어진 것처럼 보인다.
+   * 무엇을 끌고 있는지는 고스트와 삽입선이 보여준다.
+   */
+  .table-block__handle {
+    opacity: 0;
+  }
+
+  /* 커서가 열 경계를 지날 때마다 파란 세로선이 번쩍이는 것도 막는다. */
+  .table-block__resizer,
+  .table-block__resizer-zone {
+    pointer-events: none;
+  }
+}
+
+body.is-table-dragging {
+  cursor: grabbing;
+}
+
+body.is-table-resizing {
+  cursor: col-resize;
+}

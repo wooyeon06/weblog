@@ -1,0 +1,141 @@
+/* ------------------------------------------------------------ 에디터 화면 */
+.editor {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.editor__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.editor__saved {
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.editor__bar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editor__count {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  padding-right: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor__scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.editor__page {
+  /* 표 블록이 본문 단보다 넓게 튀어나올 폭을 계산할 때 쓴다. (TableBlock.scss) */
+  --page-width: 900px;
+  --page-pad: 56px;
+
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: 48px var(--page-pad) 40vh;
+}
+
+/* 반응형 — 여백을 바꿀 때 변수도 같이 바꿔야 표 폭 계산이 어긋나지 않는다. */
+@media (max-width: 900px) {
+  .editor__page {
+    --page-pad: 24px;
+    padding: 32px var(--page-pad) 40vh;
+  }
+}
+
+@media (max-width: 720px) {
+  .editor__page {
+    --page-pad: 20px;
+    padding: 24px var(--page-pad) 40vh;
+  }
+}
+
+.editor__emoji-row {
+  position: relative;
+}
+
+.editor__emoji {
+  border: none;
+  background: transparent;
+  font-size: 48px;
+  line-height: 1;
+  padding: 4px 8px;
+  margin-left: -8px;
+  border-radius: 8px;
+}
+
+.editor__emoji:hover {
+  background: var(--bg-hover);
+}
+
+.emoji-picker {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: var(--shadow-md);
+}
+
+.emoji-picker button {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  padding: 5px;
+  border-radius: 6px;
+}
+
+.emoji-picker button:hover {
+  background: var(--bg-hover);
+}
+
+.editor__title,
+.editor__title-view {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+  margin: 8px 0 12px;
+  padding: 0;
+}
+
+.editor__title::placeholder {
+  color: var(--text-faint);
+}
+
+.editor__blocks {
+  margin-top: 16px;
+}
+
+.editor__tail {
+  min-height: 240px;
+  cursor: text;
+}

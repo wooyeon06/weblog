@@ -1,0 +1,344 @@
+/* ------------------------------------------------------------------ 블록 */
+.block {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+
+  &__gutter {
+    position: absolute;
+    left: -62px;
+    top: 2px;
+    display: flex;
+    gap: 1px;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+
+  &:hover &__gutter,
+  &[data-active='true'] &__gutter {
+    opacity: 1;
+  }
+
+  &__gutter-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-faint);
+    border-radius: 5px;
+    width: 22px;
+    height: 24px;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+
+    &:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+  }
+
+  /* 드래그 핸들: 터치에서 스크롤 제스처로 가로채이지 않게 한다. */
+  &__drag-handle {
+    cursor: grab;
+    touch-action: none;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  &__menu-wrap {
+    position: relative;
+  }
+
+  &__menu {
+    position: absolute;
+    top: 26px;
+    left: 0;
+    z-index: 40;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    padding: 4px;
+    min-width: 132px;
+    display: flex;
+    flex-direction: column;
+
+    button {
+      border: none;
+      background: transparent;
+      text-align: left;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13.5px;
+      white-space: nowrap;
+
+      &:hover {
+        background: var(--bg-hover);
+      }
+    }
+  }
+
+  &__menu-danger:hover {
+    color: var(--danger);
+  }
+
+  &__body {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  &__marker {
+    color: var(--text-muted);
+    line-height: 1.6;
+    padding-top: 3px;
+    min-width: 18px;
+    text-align: right;
+    user-select: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__checkbox {
+    margin: 9px 0 0;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    flex: none;
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    resize: none;
+    overflow: hidden;
+    padding: 3px 2px;
+    line-height: 1.6;
+    font-size: 16px;
+
+    &::placeholder {
+      color: var(--text-faint);
+    }
+  }
+
+  &__input--done {
+    text-decoration: line-through;
+    color: var(--text-faint);
+  }
+
+  &__input--hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &__divider {
+    flex: 1;
+    border: none;
+    border-top: 1px solid var(--border-strong);
+    margin: 10px 0;
+  }
+}
+
+/* ------------------------------------------------------------ 블록 타입별 */
+
+.block--h1 .block__input {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 20px;
+}
+
+.block--h2 .block__input {
+  font-size: 23px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  margin-top: 16px;
+}
+
+.block--h3 .block__input {
+  font-size: 18.5px;
+  font-weight: 650;
+  margin-top: 12px;
+}
+
+.block--quote {
+  .block__body {
+    border-left: 3px solid var(--border-strong);
+    padding-left: 12px;
+  }
+
+  .block__input {
+    color: var(--text-muted);
+    font-style: italic;
+  }
+}
+
+.block--code {
+  .block__body {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 6px 0;
+  }
+
+  .block__input {
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 13.5px;
+    line-height: 1.55;
+    white-space: pre;
+  }
+}
+
+.block--divider {
+  padding: 6px 0;
+
+  .block__body {
+    position: relative;
+  }
+}
+
+/* 표는 가로 스크롤을 스스로 관리하므로 flex 가 아니라 블록으로 깐다. */
+.block--table .block__body {
+  display: block;
+}
+
+/* ------------------------------------------------------- 드래그 앤 드롭 */
+
+/* 드래그 중에는 텍스트 선택 / I-beam 커서가 방해되지 않게 한다. */
+body.is-block-dragging {
+  cursor: grabbing;
+  user-select: none;
+
+  .block__input,
+  .block__gutter-btn {
+    cursor: grabbing;
+  }
+}
+
+/* 끌고 있는 원본은 자리만 남기고 흐리게 */
+.block--dragging {
+  opacity: 0.32;
+
+  .block__gutter {
+    opacity: 0 !important;
+  }
+}
+
+/* 삽입선: 실제로 놓이게 될 자리에만 한 줄 */
+.block--drop-before::before,
+.block--drop-after::after {
+  content: '';
+  position: absolute;
+  left: -2px;
+  right: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.block--drop-before::before {
+  top: -1px;
+}
+
+.block--drop-after::after {
+  bottom: -1px;
+}
+
+/* --------------------------------------------------------- 드래그 고스트 */
+
+.block-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 80;
+  pointer-events: none;
+  will-change: transform;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  opacity: 0.95;
+  rotate: -1.2deg;
+  animation: block-ghost-in 0.12s ease-out;
+
+  &__icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 5px;
+    background: var(--bg-subtle);
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  &__thumb {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    object-fit: cover;
+  }
+
+  &__text {
+    min-width: 0;
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__text--empty {
+    color: var(--text-faint);
+  }
+}
+
+@keyframes block-ghost-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .block-ghost {
+    rotate: none;
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------- 반응형 */
+
+@media (max-width: 900px) {
+  .block__gutter {
+    left: -26px;
+  }
+}
+
+@media (max-width: 720px) {
+  .block__gutter {
+    display: none;
+  }
+}

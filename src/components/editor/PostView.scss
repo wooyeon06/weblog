@@ -1,0 +1,25 @@
+/* 읽기 모드 전용 스타일. 나머지 .post-view 규칙은 아직 App.css 에 있다. */
+
+.post-view__table-wrap {
+  overflow-x: auto;
+  margin: 14px 0;
+}
+
+.post-view__table {
+  border-collapse: collapse;
+  font-size: 15px;
+  line-height: 1.6;
+
+  th,
+  td {
+    border: 1px solid var(--border);
+    padding: 7px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: var(--bg-subtle);
+    font-weight: 600;
+  }
+}
