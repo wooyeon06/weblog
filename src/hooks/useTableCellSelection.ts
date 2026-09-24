@@ -1,8 +1,8 @@
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { CellPos } from '../components/editor/table/TableContextProvider'
 import { clearCells, rangeOf, type CellRange } from '../lib/table'
 import type { TableData } from '../types'
+import type { CellPos } from '../components/editor/block/table/TableContextProvider'
 
 type Selection = { anchor: CellPos; focus: CellPos }
 

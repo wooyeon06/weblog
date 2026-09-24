@@ -1,6 +1,6 @@
 import { createContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { TableData } from "../../../types";
-import type { EditableField } from "../../../lib/editableField";
+import type { TableData } from "../../../../types";
+import type { EditableField } from "../../../../lib/editableField";
 
 export type Axis = 'row' | 'col'
 export type MenuTarget = Axis | 'corner'

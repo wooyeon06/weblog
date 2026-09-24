@@ -8,8 +8,8 @@ import type { EditableField, RichField } from '../../../lib/editableField'
 import { BlockType, type Block, type TableData } from '../../../types'
 import BlockMenu from '../BlockMenu'
 import { SLASH_ITEMS } from '../../../lib/slashItems'
-import { TableBlockWrapper } from '../table/TableBlockWrapper'
 import { RichInput } from '../rich/RichInput'
+import { TableBlockWrapper } from './table/TableBlockWrapper'
 
 export type BlockAction = 'moveUp' | 'moveDown' | 'duplicate' | 'delete'
 

@@ -1,39 +1,24 @@
 import './TableBlock.scss'
 
 import { Fragment, useContext, useEffect, useRef, useState } from 'react'
-import { useTableCellSelection } from '../../../hooks/useTableCellSelection'
-import { useTableEventHandler } from '../../../hooks/useTableEventHandler'
+import { useTableCellSelection } from '../../../../hooks/useTableCellSelection'
+import { useTableEventHandler } from '../../../../hooks/useTableEventHandler'
 import {
   clearCells,
-  clearColumn,
   colorValueOf,
-  COLUMN_ROW_COLORS,
-  duplicateColumn,
   insertColumn,
   insertRow,
   isCoveredCell,
   mergeCells,
   mergeOfRange,
-  removeColumn,
   setCell,
-  setColumnColor,
   spanOf,
   unmergeCells
-} from '../../../lib/table'
+} from '../../../../lib/table'
+import ColMenu from './ColMenu'
 import RowMenu from './RowMenu'
 import TableCellInput from './TableCellInput'
 import { TableContext, type Axis, type CellPos } from './TableContextProvider'
-import {
-  IconArrowLeft,
-  IconArrowRight,
-  IconChevronRight,
-  IconColor,
-  IconCopy,
-  IconEraser,
-  IconHeader,
-  IconTrash
-} from './TableMenuIcons'
-import ColMenu from '../block/ColMenu'
 
 export function TableBlock() {
   const {

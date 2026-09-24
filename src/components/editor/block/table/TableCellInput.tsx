@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from "react"
-import { RichInput } from "../RichInput"
+import { RichInput } from "../../rich/RichInput"
 
 type TableCellInputProps = {
   value: string

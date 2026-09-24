@@ -1,4 +1,4 @@
-import '../richText.scss'
+import './richText.scss'
 
 import type { ClipboardEvent, KeyboardEvent, MouseEvent } from 'react'
 import { useEffect, useLayoutEffect, useRef } from 'react'
