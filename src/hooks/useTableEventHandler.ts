@@ -1,6 +1,6 @@
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { TableContext, type Axis, type CellPos, type MenuTarget } from '../components/editor/table/TableContextProvider';
+import { TableContext, type Axis, type CellPos, type MenuTarget } from '../components/editor/block/table/TableContextProvider';
 import { insertRow, isCoveredCell, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, moveColumn, moveRow, resizeColumn } from '../lib/table';
 import type { TableData } from '../types';
 import { fieldOf } from '../lib/editableField';
