@@ -272,32 +272,45 @@ export class RichField implements EditableField {
   }
 
   /**
-   * 커서가 서식 요소의 끝에 있으면 커서를 그 요소 바깥(바로 뒤)으로 옮긴다.
-   * 이후 치는 글자는 서식 없이 들어간다. (노션: 인라인 코드 끝에서 →, 자동 서식 직후)
+   * 커서가 인라인 코드의 경계에 있으면 그 요소 밖으로 나가게 한다.
+   * 오른쪽 화살표면 코드 뒤, 왼쪽 화살표면 코드 앞에서 빠져나간다.
+   * 이후 치는 글자는 서식 없이 들어간다.
    * @param onlyCode 인라인 코드 안에 있을 때만
+   * @param direction 코드 밖으로 나가는 방향
    * @returns 옮겼는지
    */
-  exitFormatting(onlyCode = false): boolean {
+  exitFormatting(onlyCode = false, direction: 'left' | 'right' = 'right'): boolean {
     const selection = window.getSelection()
     if (!selection?.rangeCount || !selection.isCollapsed) return false
-    const { startContainer: node, startOffset: offset } = selection.getRangeAt(0)
+    const range = selection.getRangeAt(0)
+    const { startContainer: node, startOffset: offset } = range
     if (node === this.root || !this.root.contains(node)) return false
-    const atEnd = node.nodeType === Node.TEXT_NODE ? offset >= (node as Text).data.length : offset >= node.childNodes.length
-    if (!atEnd) return false
-    if (onlyCode && !(node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element))?.closest('code')) return false
 
-    // 루트 바로 아래의 서식 요소까지 올라간다. 도중에 뒤따르는 형제가 있으면 끝이 아니다.
-    let top: Node = node
-    while (top.parentNode && top.parentNode !== this.root) {
-      if (top.parentNode.lastChild !== top) return false
-      top = top.parentNode
+    const code = (node.nodeType === Node.TEXT_NODE ? node.parentElement : node as Element | null)?.closest('code')
+    if (onlyCode && !code) return false
+
+    const isAtBoundary = (element: Element) => {
+      if (direction === 'right') {
+        if (node === element && offset >= element.childNodes.length) return true
+        return node.nodeType === Node.TEXT_NODE && offset >= (node as Text).data.length && element.contains(node)
+      }
+      if (node === element && offset <= 0) return true
+      return node.nodeType === Node.TEXT_NODE && offset <= 0 && element.contains(node)
     }
-    if (top.nodeType === Node.TEXT_NODE) return false // 이미 서식 밖
 
-    // 이미 커서 자리가 있으면 그리로 옮기기만 한다.
-    const next = top.nextSibling
-    const existing = next?.nodeType === Node.TEXT_NODE && !stripAnchors((next as Text).data) && (next as Text).data
-    const anchor = existing ? (next as Text) : this.root.insertBefore(document.createTextNode(CARET_ANCHOR), next)
+    if (!code || !isAtBoundary(code)) return false
+
+    const next = direction === 'right' ? code.nextSibling : code.previousSibling
+    if (next && next.nodeType === Node.TEXT_NODE) {
+      const text = next as Text
+      const pos = direction === 'right' ? text.data.length : 0
+      selection.setBaseAndExtent(text, pos, text, pos)
+      return true
+    }
+
+    const anchor = document.createTextNode(CARET_ANCHOR)
+    if (direction === 'right') this.root.insertBefore(anchor, next)
+    else this.root.insertBefore(anchor, code)
     selection.setBaseAndExtent(anchor, anchor.data.length, anchor, anchor.data.length)
     return true
   }

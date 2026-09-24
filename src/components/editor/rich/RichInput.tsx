@@ -203,6 +203,14 @@ export function RichInput({
       return
     }
 
+    if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && window.getSelection()?.isCollapsed) {
+      const direction = event.key === 'ArrowLeft' ? 'left' : 'right'
+      if (field().exitFormatting(true, direction)) {
+        event.preventDefault()
+        return
+      }
+    }
+
     onKeyDown?.(event)
     if (event.defaultPrevented) return
 

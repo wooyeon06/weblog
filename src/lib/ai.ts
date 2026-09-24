@@ -232,7 +232,7 @@ async function streamOpenAiCompatible(
   }
   if (provider === 'openrouter') {
     headers['HTTP-Referer'] = window.location.origin
-    headers['X-Title'] = 'weblog'
+    headers['X-Title'] = 'welog'
   }
 
   const response = await fetch(OPENAI_COMPATIBLE_URLS[provider], {

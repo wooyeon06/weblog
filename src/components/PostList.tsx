@@ -47,7 +47,7 @@ export function PostList({ posts, onOpen, onCreate, onDelete, onOpenSettings }: 
         <div className="list__brand">
           <span className="list__logo">✒️</span>
           <div>
-            <h1>weblog</h1>
+            <h1>welog</h1>
             <p>AI와 함께 쓰는 블로그</p>
           </div>
         </div>

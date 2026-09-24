@@ -5,9 +5,9 @@ import { uid } from './id'
  * 데이터 저장소. 지금은 브라우저 localStorage 를 사용한다.
  * 나중에 서버 API 로 옮길 때 이 파일의 함수 본문만 교체하면 된다.
  */
-const POSTS_KEY = 'weblog:posts'
-const SETTINGS_KEY = 'weblog:ai-settings'
-const SEEDED_KEY = 'weblog:seeded'
+const POSTS_KEY = 'welog:posts'
+const SETTINGS_KEY = 'welog:ai-settings'
+const SEEDED_KEY = 'welog:seeded'
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -23,7 +23,7 @@ function write(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch (error) {
-    console.warn('[weblog] localStorage 저장 실패', error)
+    console.warn('[welog] localStorage 저장 실패', error)
   }
 }
 
@@ -70,7 +70,7 @@ export function seedIfEmpty(): Post[] {
   const now = Date.now()
   const sample: Post = {
     id: uid('p_'),
-    title: 'weblog 사용법',
+    title: 'welog 사용법',
     emoji: '👋',
     tags: ['가이드'],
     status: 'published',

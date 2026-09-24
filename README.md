@@ -1,4 +1,4 @@
-# weblog
+# welog
 
 노션처럼 글을 쓰고, 플로팅 버튼으로 언제든 AI와 대화하며 이어 쓸 수 있는 블로그 웹서비스입니다.
 React 19 + TypeScript + Vite, 런타임 의존성은 `react` / `react-dom` 뿐입니다.
@@ -66,7 +66,7 @@ AI 기능을 쓰려면 실행 후 **⚙ AI 설정** 에서 API 키를 등록하�
 
 ## 데이터 저장
 
-요청대로 **브라우저 `localStorage`** 에 저장합니다 (`weblog:posts`, `weblog:ai-settings`).
+요청대로 **브라우저 `localStorage`** 에 저장합니다 (`welog:posts`, `welog:ai-settings`).
 
 - 탭을 닫으면 글과 API 키가 모두 사라집니다. 유지가 필요하면
   [src/lib/storage.ts](src/lib/storage.ts) 의 `localStorage` 를 `localStorage` 로 바꾸거나,

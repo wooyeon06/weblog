@@ -27,7 +27,7 @@ export function colorClass(kind: ColorKind, key?: string): string {
 
 export type RecentColor = { kind: ColorKind; key: string }
 
-const RECENT_KEY = 'weblog:recent-colors'
+const RECENT_KEY = 'welog:recent-colors'
 const RECENT_LIMIT = 5
 
 export function loadRecentColors(): RecentColor[] {
