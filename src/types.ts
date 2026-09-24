@@ -31,6 +31,14 @@ export type TableRow = {
   color?: string
 }
 
+/** 병합된 셀. (row, col) 이 왼쪽 위 셀이고, 내용은 그 셀에만 둔다. 가려진 셀은 항상 비어 있다. */
+export type CellMerge = {
+  row: number
+  col: number
+  rowSpan: number
+  colSpan: number
+}
+
 export type TableData = {
   columns: TableColumn[]
   rows: TableRow[]
@@ -38,6 +46,8 @@ export type TableData = {
   headerRow: boolean
   /** 첫 열을 머리글로 표시 */
   headerColumn: boolean
+  /** 병합된 셀 목록. 서로 겹치지 않는다. */
+  merges?: CellMerge[]
 }
 
 export type Block = {

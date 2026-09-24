@@ -1,4 +1,4 @@
-import type { BlockType } from '../../types'
+import type { BlockType } from '../types'
 
 export type SlashItem = {
   type: BlockType

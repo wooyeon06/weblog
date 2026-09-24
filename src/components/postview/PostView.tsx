@@ -3,8 +3,8 @@ import './PostView.scss'
 import { Fragment } from 'react'
 import type { Block, TableData } from '../../types'
 import { numberedIndex } from '../../lib/blocks'
-import { normalizeTable } from '../../lib/table'
-import { RichText } from '../RichText'
+import { isCoveredCell, normalizeTable, spanOf } from '../../lib/table'
+import { RichText } from '../editor/rich/RichText'
 
 /** 셀 안의 줄바꿈을 <br> 로 렌더링한다. */
 function CellText({ text }: { text: string }) {
@@ -22,10 +22,10 @@ function CellText({ text }: { text: string }) {
 }
 
 function TableView({ table }: { table?: TableData }) {
-  const { columns, rows, headerRow, headerColumn } = normalizeTable(table)
-  const head = headerRow ? rows[0] : null
-  const body = headerRow ? rows.slice(1) : rows
+  const data = normalizeTable(table)
+  const { columns, rows, headerRow, headerColumn } = data
 
+  // 병합 셀이 머리글 행과 본문에 걸칠 수 있으므로 thead/tbody 로 나누지 않고 한 tbody 에 그린다.
   return (
     <div className="post-view__table-wrap">
       <table className="post-view__table">
@@ -34,31 +34,33 @@ function TableView({ table }: { table?: TableData }) {
             <col key={column.id} style={{ width: column.width }} />
           ))}
         </colgroup>
-        {head && (
-          <thead>
-            <tr>
-              {head.cells.map((cell, c) => (
-                <th key={columns[c].id} scope="col">
-                  <CellText text={cell} />
-                </th>
-              ))}
-            </tr>
-          </thead>
-        )}
         <tbody>
-          {body.map((row) => (
+          {rows.map((row, r) => (
             <tr key={row.id}>
-              {row.cells.map((cell, c) =>
-                headerColumn && c === 0 ? (
-                  <th key={columns[c].id} scope="row">
-                    <CellText text={cell} />
-                  </th>
-                ) : (
-                  <td key={columns[c].id}>
+              {row.cells.map((cell, c) => {
+                if (isCoveredCell(data, r, c)) return null
+                const { rowSpan, colSpan } = spanOf(data, r, c)
+                const span = { rowSpan: rowSpan > 1 ? rowSpan : undefined, colSpan: colSpan > 1 ? colSpan : undefined }
+                if (headerRow && r === 0) {
+                  return (
+                    <th key={columns[c].id} scope="col" {...span}>
+                      <CellText text={cell} />
+                    </th>
+                  )
+                }
+                if (headerColumn && c === 0) {
+                  return (
+                    <th key={columns[c].id} scope="row" {...span}>
+                      <CellText text={cell} />
+                    </th>
+                  )
+                }
+                return (
+                  <td key={columns[c].id} {...span}>
                     <CellText text={cell} />
                   </td>
-                ),
-              )}
+                )
+              })}
             </tr>
           ))}
         </tbody>

@@ -4,7 +4,7 @@ import { AiError, providerInfo, streamChat } from '../../lib/ai'
 import type { AiTurn } from '../../lib/ai'
 import { blocksToMarkdown, markdownToBlocks } from '../../lib/blocks'
 import { uid } from '../../lib/id'
-import { PostView } from '../editor/PostView'
+import { PostView } from '../postview/PostView'
 
 type QuickAction = {
   label: string

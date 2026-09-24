@@ -1,0 +1,190 @@
+.selection-toolbar {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  user-select: none;
+  animation: selection-toolbar-in 0.12s ease-out;
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover,
+    &--open {
+      background: var(--bg-hover);
+    }
+
+    &--active {
+      color: var(--accent);
+      background: var(--accent-soft);
+
+      &:hover {
+        background: var(--accent-soft);
+      }
+    }
+
+    b,
+    i,
+    u,
+    s {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 16px;
+    }
+
+    b {
+      font-weight: 700;
+    }
+
+    &--clear sub {
+      font-size: 9px;
+      margin-left: 1px;
+    }
+  }
+
+  &__mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+  }
+
+  &__color-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  &__sep {
+    width: 1px;
+    height: 18px;
+    margin: 0 3px;
+    background: var(--border);
+  }
+
+  &__link {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__link-input {
+    width: 240px;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: var(--bg-subtle);
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+
+    &:focus {
+      border-color: var(--accent);
+    }
+  }
+
+  &__link-submit {
+    height: 30px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+  }
+}
+
+/* ------------------------------------------------------------ 색상 메뉴 */
+
+.color-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 212px;
+  max-height: min(360px, 60vh);
+  overflow-y: auto;
+  padding: 10px 12px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+
+  section + section {
+    margin-top: 12px;
+  }
+
+  &__title {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(5, 30px);
+    gap: 7px;
+  }
+
+  /* 색 클래스(rt-bg-*)보다 우선하도록 한 단계 더 구체적으로 쓴다. */
+  .color-menu__swatch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+
+    &:not([class*='rt-color-']) {
+      color: var(--text);
+    }
+
+    &:hover {
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-sm);
+    }
+
+    &:not([class*='rt-bg-']) {
+      background: var(--surface);
+    }
+
+    &.color-menu__swatch--active {
+      border: 2px solid var(--text);
+    }
+  }
+}
+
+@keyframes selection-toolbar-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}

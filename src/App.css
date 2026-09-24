@@ -132,13 +132,39 @@
   padding: 0 32px 16px;
 }
 
+/* 인라인 코드: 본문과 확실히 구분되도록 붉은 글자 + 옅은 회색 바탕 (노션 스타일) */
 .inline-code {
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
+  --inline-code-fg: #eb5757;
+  --inline-code-bg: rgba(135, 131, 120, 0.15);
+
+  color: var(--inline-code-fg);
+  background: var(--inline-code-bg);
   border-radius: 4px;
-  padding: 1px 5px;
+  padding: 0.15em 0.4em;
+  margin: 0 0.05em;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 0.88em;
+  font-size: 0.85em;
+  font-weight: 500;
+  line-height: normal;
+  letter-spacing: -0.01em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+@media (prefers-color-scheme: dark) {
+  .inline-code {
+    --inline-code-fg: #ff7b72;
+    --inline-code-bg: rgba(135, 131, 120, 0.22);
+  }
+}
+
+/* 색을 직접 입힌 코드는 그 색을 따른다. */
+[class*='rt-color-'] .inline-code {
+  color: inherit;
+}
+
+[class*='rt-bg-'] .inline-code {
+  background: rgba(135, 131, 120, 0.12);
 }
 
 /* -------------------------------------------------------------- 목록 화면 */

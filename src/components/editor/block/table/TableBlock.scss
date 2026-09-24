@@ -119,11 +119,35 @@ $straddle: 5px;
     touch-action: none;
     z-index: 6;
     background: transparent;
-    border-left: 1px solid transparent;
 
-    &:hover {
-      background: color-mix(in srgb, var(--accent) 10%, transparent);
+    /*
+     * 반투명 면으로 칠하면 선택 막(__cell--selected)·포커스 테두리와 겹쳐 진하게 뭉개진다.
+     * 열 머리의 __resizer 처럼 경계선 위에 가는 선 하나만 그린다.
+     * (존은 셀 안쪽 3px ~ 바깥 5px 에 걸쳐 있어, 셀 테두리는 2px 지점에 온다)
+     */
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 2px;
+      width: 2px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.1s ease;
     }
+
+    &:hover::after {
+      opacity: 1;
+    }
+  }
+
+  /* 셀 오른쪽 가장자리에 걸치는 조절 영역 */
+  &__resizer-zone--cell {
+    top: -1px;
+    bottom: -1px;
+    right: -5px;
+    z-index: 2;
   }
 
   /* ----------------------------------------------------------- 손잡이 */
@@ -166,7 +190,7 @@ $straddle: 5px;
 
   /*
    * 손잡이는 두 단계로 바뀐다.
-   *  - 평소: 테두리에 붙은 얇은 막대 (테두리가 굵어진 것처럼 보인다)
+   *  - 평소: 테두리 선을 끊고 들어간 짧은 막대
    *  - 커서를 올리면: 잡이 점이 있는 알약으로 부풀어 오른다
    */
   &__grip {
@@ -198,19 +222,31 @@ $straddle: 5px;
     }
   }
 
+  /*
+   * 평소 막대는 행·열 가운데에만 짧게 두고 바탕색 틈으로 둘러,
+   * 테두리 선이 끊긴 자리에 막대가 들어간 것처럼 보이게 한다.
+   * (전체 길이 막대면 테두리를 통째로 덮어, 파란 선택 테두리 위에서는 파란 선이 안 보인다)
+   */
+  &__grip--col,
+  &__grip--row {
+    box-shadow: 0 0 0 2px var(--surface);
+  }
+
   /* 열 — 위 테두리에 절반 걸치는 가로 막대 */
   &__grip--col {
-    width: 100%;
-    height: 3px;
+    width: 16px;
+    height: 2px;
     /* 자기 높이의 절반만큼 내려 테두리 선을 가운데로 지나가게 한다. */
     transform: translateY(50%);
+    background-color: #ada9a3;
   }
 
   /* 행 — 왼쪽 테두리에 절반 걸치는 세로 막대. 점 배치도 2×3 으로 돌린다. */
   &__grip--row {
-    width: 3px;
-    height: 100%;
+    width: 1.5px;
+    height: 14px;
     transform: translateX(50%);
+    background-color: #ada9a3;
 
     &::before {
       margin: -5px 0 0 -3px;
@@ -221,6 +257,18 @@ $straddle: 5px;
         0 8px 0 var(--surface),
         4px 8px 0 var(--surface);
     }
+  }
+
+  /*
+   * 파란 선택·포커스 테두리가 지나가는 자리의 손잡이.
+   * 선택 테두리는 표 테두리보다 1px 안쪽에서 2px 두께라, 막대도 1px 더 안쪽으로 옮겨 파란 선 한가운데에 올린다.
+   */
+  &__handle--flush &__grip--col {
+    transform: translateY(calc(50% + 1px));
+  }
+
+  &__handle--flush &__grip--row {
+    transform: translateX(calc(50% + 1px));
   }
 
   &__handle:hover &__grip--col,
@@ -243,7 +291,9 @@ $straddle: 5px;
     }
   }
 
-  &__handle--on &__grip {
+  /* 선택된 손잡이는 커서를 올려도 회색(hover)으로 돌아가지 않게 :hover 까지 같이 잡는다. */
+  &__handle--on &__grip,
+  &__handle--on:hover &__grip {
     background: var(--accent);
 
     &::before {
@@ -365,11 +415,23 @@ $straddle: 5px;
     }
   }
 
+  /* ------------------------------------------------------------ 본문 */
+
+  /* 병합 셀이 여러 행·열을 차지하도록 grid 로 깐다. 열 너비는 인라인 grid-template-columns. */
+  &__rows {
+    display: grid;
+    grid-auto-rows: auto;
+  }
+
   /* ------------------------------------------------------- 행 손잡이 */
+
+  /*
+   * 행 전체를 덮는 띠. 셀 아래에 깔려 있고(마우스는 셀이 받는다),
+   * 손잡이 · 선택 테두리 · 삽입선을 그리고, 행 드래그 때 위치 계산에 쓰인다.
+   */
   &__row {
     position: relative;
-    display: flex;
-    align-items: stretch;
+    pointer-events: none;
   }
 
   &__row-handle-wrap {
@@ -432,8 +494,8 @@ $straddle: 5px;
   /* ------------------------------------------------------------- 셀 */
 
   &__cell {
-    flex: none;
     position: relative;
+    min-width: 0;
     border-right: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     padding: 5px 8px;
@@ -452,6 +514,72 @@ $straddle: 5px;
 
   &__cell--dragging {
     opacity: 0.5;
+  }
+
+  /* 여러 셀 선택: 셀마다 옅은 파란 막을 씌우고, 범위 전체에 테두리 하나를 그린다. */
+  &__cell--selected::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--accent) 13%, transparent);
+    pointer-events: none;
+  }
+
+  &__cell--selected:focus-within {
+    box-shadow: none;
+  }
+
+  &__selection {
+    position: absolute;
+    border: 2px solid var(--accent);
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* 선택한 셀 위에 뜨는 동작 바 */
+  &__cell-bar {
+    position: fixed;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    font-size: 13px;
+    user-select: none;
+    white-space: nowrap;
+
+    button {
+      height: 28px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        background: var(--bg-hover);
+      }
+
+      &:disabled {
+        color: var(--text-faint);
+        cursor: default;
+      }
+    }
+  }
+
+  &__cell-bar-count {
+    padding: 0 8px 0 6px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    border-right: 1px solid var(--border);
+    margin-right: 2px;
   }
 
   &__input {
@@ -715,4 +843,10 @@ body.is-table-dragging {
 
 body.is-table-resizing {
   cursor: col-resize;
+}
+
+/* 여러 셀을 끌어서 선택하는 동안에는 글자 선택이 생기지 않게 한다. */
+body.is-table-selecting {
+  user-select: none;
+  cursor: cell;
 }

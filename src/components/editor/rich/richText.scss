@@ -1,0 +1,86 @@
+/* 편집기(RichInput)와 읽기 화면(RichText)이 함께 쓰는 인라인 서식 스타일 */
+
+:root {
+  --rt-gray: #787774;
+  --rt-brown: #9f6b53;
+  --rt-orange: #d9730d;
+  --rt-yellow: #cb912f;
+  --rt-green: #448361;
+  --rt-blue: #337ea9;
+  --rt-purple: #9065b0;
+  --rt-pink: #c14c8a;
+  --rt-red: #d44c47;
+
+  --rt-bg-gray: #f1f1ef;
+  --rt-bg-brown: #f4eeee;
+  --rt-bg-orange: #fbecdd;
+  --rt-bg-yellow: #fbf3db;
+  --rt-bg-green: #edf3ec;
+  --rt-bg-blue: #e7f3f8;
+  --rt-bg-purple: #f6f3f9;
+  --rt-bg-pink: #faf1f5;
+  --rt-bg-red: #fdebec;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rt-gray: #9b9b9b;
+    --rt-brown: #ba856f;
+    --rt-orange: #c77d48;
+    --rt-yellow: #ca9849;
+    --rt-green: #529e72;
+    --rt-blue: #5e87c9;
+    --rt-purple: #9d68d3;
+    --rt-pink: #d15796;
+    --rt-red: #df5452;
+
+    --rt-bg-gray: #2f2f2f;
+    --rt-bg-brown: #4a3228;
+    --rt-bg-orange: #5c3b23;
+    --rt-bg-yellow: #564328;
+    --rt-bg-green: #243d30;
+    --rt-bg-blue: #143a4e;
+    --rt-bg-purple: #3c2d49;
+    --rt-bg-pink: #4e2c3c;
+    --rt-bg-red: #522e2a;
+  }
+}
+
+$colors: gray, brown, orange, yellow, green, blue, purple, pink, red;
+
+@each $name in $colors {
+  .rt-color-#{$name} {
+    color: var(--rt-#{$name});
+  }
+
+  .rt-bg-#{$name} {
+    background: var(--rt-bg-#{$name});
+    border-radius: 3px;
+  }
+}
+
+.rt-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--text-faint);
+  text-underline-offset: 2px;
+}
+
+/* ------------------------------------------------------------ 편집 입력칸 */
+
+.rich-input {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  outline: none;
+  cursor: text;
+
+  &:empty::before {
+    content: attr(data-placeholder);
+    color: var(--text-faint);
+    pointer-events: none;
+  }
+
+  a {
+    cursor: text;
+  }
+}

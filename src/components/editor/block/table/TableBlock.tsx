@@ -33,7 +33,7 @@ import {
   IconHeader,
   IconTrash
 } from './TableMenuIcons'
-import ColMenu from '../block/table/ColMenu'
+import ColMenu from '../block/ColMenu'
 
 export function TableBlock() {
   const {

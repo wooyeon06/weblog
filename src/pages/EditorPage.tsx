@@ -4,6 +4,7 @@ import { Editor } from '../components/editor/Editor'
 import type { EditorHandle } from '../components/editor/Editor'
 import { back, navigate } from '../lib/router'
 import type { Block, Post, SaveState } from '../types'
+import type { EditableField } from '../lib/editableField'
 import { usePostStore } from '../storage/usePostStore'
 import { newBlock } from '../lib/blocks'
 import usePostHandler from '../hooks/usePostHandler'
@@ -25,7 +26,8 @@ export type EditorProviderType = {
   setSlashIndex: React.Dispatch<React.SetStateAction<number>>
   patch: (changes: Partial<Post>, post?: Post) => void
   commitBlocks: (blocks: Block[], post?: Post) => void
-  inputs: React.RefObject<Map<String, HTMLTextAreaElement>>
+  /** 블록 id → 입력칸. 위치는 모두 마크다운 기준이다. */
+  inputs: React.RefObject<Map<string, EditableField>>
   activePost : Post | null
 } 
 
@@ -46,7 +48,7 @@ const EditorProvider = ({ children }: { children: React.ReactNode }) => {
   const [slash, setSlash] = useState<SlashState | null>(null);
   const [slashIndex, setSlashIndex] = useState(0);
   const {activePost} = usePostHandler();
-  const inputs = useRef(new Map<string, HTMLTextAreaElement>())
+  const inputs = useRef(new Map<string, EditableField>())
 
   //=============================== Block [S] ===============================
   const onChange = usePostStore((state) => state.updatePost);

@@ -1,10 +1,16 @@
 import { useCallback, useContext, useMemo, useRef, type ClipboardEvent, type KeyboardEvent } from "react"
-import { filterSlashItems, type SlashItem } from "../components/editor/slashItems"
+import { filterSlashItems, type SlashItem } from "../lib/slashItems"
 import { isListType, markdownToBlocks, matchShortcut, MAX_INDENT, newBlock } from "../lib/blocks"
+import type { EditableField } from "../lib/editableField"
+import { joinInline, plainText, splitInline } from "../lib/inlineMarkdown"
 import { newTable } from "../lib/table"
 import { EditorContext } from "../pages/EditorPage"
+import type { BlockType } from "../types"
 
-function anchorOf(element: HTMLTextAreaElement | null) {
+/** 인라인 서식을 해석하는 블록인지. (코드 블록은 글자 그대로 다룬다) */
+const isRichType = (type: BlockType) => type !== 'code'
+
+function anchorOf(element: EditableField | null) {
   if (!element) return { left: 200, top: 200, bottom: 220 }
   const rect = element.getBoundingClientRect()
   return { left: rect.left, top: rect.top, bottom: rect.bottom }
@@ -16,9 +22,9 @@ export default function useBlockHandler() {
   
 
   //=============================== Focus [S] ===============================
-  const pendingFocus = useRef<{ id: string; caret: number } | null>(null);
+  const pendingFocusRef = useRef<{ id: string; caret: number } | null>(null);
   const focusBlock = useCallback((id: string, caret: number) => {
-    pendingFocus.current = { id, caret }
+    pendingFocusRef.current = { id, caret }
   }, [])
   //=============================== Focus [E] ===============================
 
@@ -27,6 +33,7 @@ export default function useBlockHandler() {
   const closeSlash = useCallback(() => {
     setSlash(null)
     setSlashIndex(0)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   //=============================== Slash [E] ===============================
 
@@ -65,7 +72,7 @@ export default function useBlockHandler() {
       closeSlash()
       commitBlocks(blocks)
     },
-    [closeSlash, commitBlocks, focusBlock, post?.blocks, slash],
+    [closeSlash, commitBlocks, focusBlock, post, slash],
   )
 
   /**
@@ -83,7 +90,7 @@ export default function useBlockHandler() {
       blocks[index] = { ...current, indent }
       commitBlocks(blocks)
     },
-    [commitBlocks, post?.blocks],
+    [commitBlocks, post],
   )
 
   /**
@@ -97,12 +104,13 @@ export default function useBlockHandler() {
    * @param id 블록 아이디
    */
   const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLTextAreaElement>, id: string) => {
+    (event: KeyboardEvent<HTMLElement>, id: string) => {
       if(!post) return;
       const index = post.blocks.findIndex((block) => block.id === id)
       if (index < 0) return
       const current = post.blocks[index]
-      const target = event.currentTarget
+      const target = inputs.current.get(id)
+      if (!target) return
       const caret = target.selectionStart
       const hasSelection = target.selectionStart !== target.selectionEnd //두 값이 다르면, 사용자가 텍스트를 드래그해서 선택한 상태라는 뜻입니다.
 
@@ -173,9 +181,10 @@ export default function useBlockHandler() {
           return
         }
 
-        // 선택 영역이 있으면 그 부분은 지우고 나눈다.
-        const before = current.text.slice(0, caret)
-        const after = current.text.slice(target.selectionEnd)
+        // 선택 영역이 있으면 그 부분은 지우고 나눈다. 서식 중간에서 나눠도 양쪽 서식이 유지된다.
+        const [before, after] = isRichType(current.type)
+          ? splitInline(current.text, caret, target.selectionEnd)
+          : [current.text.slice(0, caret), current.text.slice(target.selectionEnd)]
         const nextType = isListType(current.type) ? current.type : 'text'
         const next = newBlock(nextType, after, current.indent)
         if (nextType === 'todo') next.checked = false
@@ -212,11 +221,12 @@ export default function useBlockHandler() {
             commitBlocks(blocks)
             return
           }
-          // 표는 text 가 본문이 아니므로 합치면 내용이 깨진다. 그냥 두고 아무것도 하지 않는다.
-          if (previous.type === 'table') return
 
-          const caretAfterMerge = previous.text.length
-          blocks[index - 1] = { ...previous, text: previous.text + current.text }
+          const merged = isRichType(previous.type)
+            ? joinInline(previous.text, current.text)
+            : { md: previous.text + current.text, caret: previous.text.length }
+          const caretAfterMerge = merged.caret
+          blocks[index - 1] = { ...previous, text: merged.md }
           blocks.splice(index, 1)
           focusBlock(previous.id, caretAfterMerge)
           commitBlocks(blocks)
@@ -241,9 +251,12 @@ export default function useBlockHandler() {
         if (next.type === 'text' || next.type === current.type) {
           event.preventDefault()
           const blocks = post.blocks.slice()
-          blocks[index] = { ...current, text: current.text + next.text }
+          const merged = isRichType(current.type)
+            ? joinInline(current.text, next.text)
+            : { md: current.text + next.text, caret }
+          blocks[index] = { ...current, text: merged.md }
           blocks.splice(index + 1, 1)
-          focusBlock(id, caret)
+          focusBlock(id, merged.caret)
           commitBlocks(blocks)
         }
         return
@@ -299,7 +312,7 @@ export default function useBlockHandler() {
       }
 
     },
-    [applySlashItem, closeSlash, commitBlocks, focusBlock, post?.blocks, setIndent, slash, slashIndex, slashItems],
+    [applySlashItem, closeSlash, commitBlocks, focusBlock, inputs, post, setActiveId, setIndent, setSlashIndex, slash, slashIndex, slashItems],
   )
 
   /**
@@ -307,7 +320,7 @@ export default function useBlockHandler() {
    * clipboard 인자 중 image/* 항목을 찾아 dataURL 로 변환해 현재 블록을 image 블록으로 바꾼다.
    */
   const handlePaste = useCallback(
-    (event: ClipboardEvent<HTMLTextAreaElement>, id: string) => {
+    (event: ClipboardEvent<HTMLElement>, id: string) => {
 
       const items = Array.from(event.clipboardData?.items ?? []);
       const types = [...event.clipboardData.types]
@@ -361,7 +374,7 @@ export default function useBlockHandler() {
       }
       
     },
-    [commitBlocks, focusBlock, post?.blocks],
+    [commitBlocks, focusBlock, post],
   )
 
   /**
@@ -383,7 +396,8 @@ export default function useBlockHandler() {
 
       // 마크다운 단축키 (`# `, `- `, `1. ` ...)
       if (!slash && current.type === 'text') {
-        const shortcut = matchShortcut(text)
+        // 사용자가 친 기호는 `\*` 처럼 이스케이프돼 있으므로 글자만 보고 판단한다.
+        const shortcut = matchShortcut(plainText(text))
         if (shortcut) {
           blocks[index] = {
             ...current,
@@ -449,13 +463,13 @@ export default function useBlockHandler() {
         }
       }
     },
-    [closeSlash, commitBlocks, focusBlock, post?.blocks, slash],
+    [closeSlash, commitBlocks, focusBlock, inputs, post, setSlash, setSlashIndex, slash],
   )
 
 
   return {
     slashItems,
-    pendingFocus, focusBlock,
+    pendingFocusRef, focusBlock,
     commitBlocks, patch,
     handleTextChange, handleKeyDown,
     handlePaste,

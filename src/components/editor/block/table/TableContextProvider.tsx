@@ -1,5 +1,6 @@
 import { createContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { TableData } from "../../../types";
+import type { EditableField } from "../../../lib/editableField";
 
 export type Axis = 'row' | 'col'
 export type MenuTarget = Axis | 'corner'
@@ -10,11 +11,12 @@ export type MenuState = { target: MenuTarget; index: number; x: number; y: numbe
 export type TableProviderType = {
     table : TableData;
     setMenu: React.Dispatch<React.SetStateAction<MenuState | null>>;
-    registerFirstCell?: (element: HTMLTextAreaElement | null) => void;
+    registerFirstCell?: (element: EditableField | null) => void;
     onChange : (table: TableData) => void;
     onFocus?: () => void
     menu: MenuState | null;
-
+    colorMenuFor : Axis | null
+    setColorMenuFor : React.Dispatch<React.SetStateAction<Axis | null>>;
     tableRef: React.RefObject<TableData>;
     onChangeRef: React.RefObject<(table: TableData) => void>;
     frameRef: React.RefObject<HTMLDivElement | null>;
@@ -27,7 +29,7 @@ export type TableBlockProps = {
   /** 셀에 포커스가 들어오면 블록을 활성 상태로 만든다. */
   onFocus?: () => void
   /** 첫 셀을 에디터의 포커스 대상으로 등록한다. (/표 직후 바로 입력할 수 있게) */
-  registerFirstCell?: (element: HTMLTextAreaElement | null) => void
+  registerFirstCell?: (element: EditableField | null) => void
 }
 
 export type CellPos = { row: number; column: number }
@@ -53,6 +55,11 @@ export const TableProvider = ({children, table, onChange, registerFirstCell, onF
     
     const [menu, setMenu] = useState<MenuState | null>(null)
 
+    /** 메뉴 안에서 펼쳐진 색상 선택 아코디언. 메뉴가 바뀌면(닫히거나 다른 행/열로) 접는다. */
+    const [colorMenuFor, setColorMenuFor] = useState<Axis | null>(null)
+    useEffect(() => setColorMenuFor(null), [menu])
+    
+
     useEffect(() => {
         tableRef.current = table
         onChangeRef.current = onChange
@@ -61,6 +68,7 @@ export const TableProvider = ({children, table, onChange, registerFirstCell, onF
     const value = useMemo<TableProviderType>(() => ({
         tableRef, onChangeRef, frameRef, pendingCellRef,
         menu, setMenu, table,
+        colorMenuFor, setColorMenuFor,
         onChange, registerFirstCell, onFocus,
     }), [menu, table, onChange, registerFirstCell, onFocus])
 

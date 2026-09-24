@@ -1,5 +1,5 @@
 import { useContext } from "react"
-import { BlockRowContext, type BlockAction } from "./BlockRow"
+import { BlockRowContext, type BlockAction } from "./block/BlockRow"
 import { BlockType } from "../../types"
 
 export default function BlockMenu({

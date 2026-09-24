@@ -1,4 +1,4 @@
-import type { TableColumn, TableData, TableRow } from '../types'
+import type { CellMerge, TableColumn, TableData, TableRow } from '../types'
 import { uid } from './id'
 
 export const MIN_COLUMN_WIDTH = 72
@@ -68,12 +68,230 @@ export function normalizeTable(table?: TableData | null): TableData {
     color: row?.color,
   }))
 
-  return {
-    columns: nextColumns,
-    rows: nextRows,
-    headerRow: Boolean(table?.headerRow),
-    headerColumn: Boolean(table?.headerColumn),
+  return withMerges(
+    {
+      columns: nextColumns,
+      rows: nextRows,
+      headerRow: Boolean(table?.headerRow),
+      headerColumn: Boolean(table?.headerColumn),
+    },
+    Array.isArray(table?.merges) ? table.merges : [],
+  )
+}
+
+// -------------------------------------------------------------------- 셀 병합
+
+/** 셀 범위. 네 값 모두 포함(inclusive)이다. */
+export type CellRange = { top: number; left: number; bottom: number; right: number }
+
+const mergesOf = (table: TableData) => table.merges ?? []
+
+const contains = (m: CellMerge, r: number, c: number) =>
+  r >= m.row && r < m.row + m.rowSpan && c >= m.col && c < m.col + m.colSpan
+
+const intersects = (m: CellMerge, range: CellRange) =>
+  m.row <= range.bottom && m.row + m.rowSpan - 1 >= range.top && m.col <= range.right && m.col + m.colSpan - 1 >= range.left
+
+/** (r, c) 를 덮는 병합. 없으면 undefined */
+export function mergeAt(table: TableData, r: number, c: number): CellMerge | undefined {
+  return mergesOf(table).find((m) => contains(m, r, c))
+}
+
+/** 다른 셀에 가려져 그리지 않는 셀인지 (병합의 왼쪽 위 셀은 아니다) */
+export function isCoveredCell(table: TableData, r: number, c: number): boolean {
+  const merge = mergeAt(table, r, c)
+  return !!merge && (merge.row !== r || merge.col !== c)
+}
+
+export function spanOf(table: TableData, r: number, c: number): { rowSpan: number; colSpan: number } {
+  const merge = mergeAt(table, r, c)
+  return merge && merge.row === r && merge.col === c
+    ? { rowSpan: merge.rowSpan, colSpan: merge.colSpan }
+    : { rowSpan: 1, colSpan: 1 }
+}
+
+/** 두 셀을 모서리로 하는 범위. 걸쳐 있는 병합 셀은 통째로 들어가도록 넓힌다. */
+export function rangeOf(table: TableData, a: { row: number; column: number }, b: { row: number; column: number }): CellRange {
+  const range: CellRange = {
+    top: Math.min(a.row, b.row),
+    left: Math.min(a.column, b.column),
+    bottom: Math.max(a.row, b.row),
+    right: Math.max(a.column, b.column),
   }
+  let grown = true
+  while (grown) {
+    grown = false
+    for (const m of mergesOf(table)) {
+      if (!intersects(m, range)) continue
+      const next = {
+        top: Math.min(range.top, m.row),
+        left: Math.min(range.left, m.col),
+        bottom: Math.max(range.bottom, m.row + m.rowSpan - 1),
+        right: Math.max(range.right, m.col + m.colSpan - 1),
+      }
+      if (next.top !== range.top || next.left !== range.left || next.bottom !== range.bottom || next.right !== range.right) {
+        Object.assign(range, next)
+        grown = true
+      }
+    }
+  }
+  return range
+}
+
+/** 범위가 병합 셀 하나와 정확히 같으면 그 병합 */
+export function mergeOfRange(table: TableData, range: CellRange): CellMerge | undefined {
+  return mergesOf(table).find(
+    (m) => m.row === range.top && m.col === range.left && m.row + m.rowSpan - 1 === range.bottom && m.col + m.colSpan - 1 === range.right,
+  )
+}
+
+/** 범위를 셀 하나로 합친다. 내용은 비어 있지 않은 셀을 줄바꿈으로 이어 왼쪽 위 셀에 모은다. */
+export function mergeCells(table: TableData, range: CellRange): TableData {
+  if (range.top === range.bottom && range.left === range.right) return table
+  const texts: string[] = []
+  for (let r = range.top; r <= range.bottom; r += 1) {
+    for (let c = range.left; c <= range.right; c += 1) {
+      const text = table.rows[r]?.cells[c]
+      if (text) texts.push(text)
+    }
+  }
+  const rows = table.rows.map((row, r) => {
+    if (r < range.top || r > range.bottom) return row
+    return {
+      ...row,
+      cells: row.cells.map((cell, c) => {
+        if (c < range.left || c > range.right) return cell
+        return r === range.top && c === range.left ? texts.join('\n') : ''
+      }),
+    }
+  })
+  const merges = mergesOf(table).filter((m) => !intersects(m, range))
+  merges.push({
+    row: range.top,
+    col: range.left,
+    rowSpan: range.bottom - range.top + 1,
+    colSpan: range.right - range.left + 1,
+  })
+  return withMerges({ ...table, rows }, merges)
+}
+
+/** 범위에 걸친 병합을 모두 푼다. 내용은 왼쪽 위 셀에 그대로 남는다. */
+export function unmergeCells(table: TableData, range: CellRange): TableData {
+  return withMerges(table, mergesOf(table).filter((m) => !intersects(m, range)))
+}
+
+/** 범위 안 셀의 내용만 비운다. */
+export function clearCells(table: TableData, range: CellRange): TableData {
+  return {
+    ...table,
+    rows: table.rows.map((row, r) =>
+      r < range.top || r > range.bottom
+        ? row
+        : { ...row, cells: row.cells.map((cell, c) => (c >= range.left && c <= range.right ? '' : cell)) },
+    ),
+  }
+}
+
+/**
+ * 병합 목록을 정리해 붙인다: 표 밖으로 나가는 부분은 자르고, 1×1 은 버리고, 겹치면 앞의 것을 남긴다.
+ * 가려진 셀의 내용은 비운다. (화면에 안 보이는 글자가 남지 않게)
+ */
+function withMerges(table: TableData, merges: CellMerge[]): TableData {
+  const rowCount = table.rows.length
+  const columnCount = table.columns.length
+  const kept: CellMerge[] = []
+  for (const raw of merges) {
+    const row = Math.floor(Number(raw?.row))
+    const col = Math.floor(Number(raw?.col))
+    if (!(row >= 0 && row < rowCount && col >= 0 && col < columnCount)) continue
+    const merge: CellMerge = {
+      row,
+      col,
+      rowSpan: Math.max(1, Math.min(Math.floor(Number(raw.rowSpan)) || 1, rowCount - row)),
+      colSpan: Math.max(1, Math.min(Math.floor(Number(raw.colSpan)) || 1, columnCount - col)),
+    }
+    if (merge.rowSpan === 1 && merge.colSpan === 1) continue
+    const box = { top: row, left: col, bottom: row + merge.rowSpan - 1, right: col + merge.colSpan - 1 }
+    if (kept.some((m) => intersects(m, box))) continue
+    kept.push(merge)
+  }
+
+  const next: TableData = { ...table }
+  if (kept.length) next.merges = kept
+  else delete next.merges
+  if (!kept.length) return next
+
+  next.rows = table.rows.map((row, r) => {
+    if (!kept.some((m) => r >= m.row && r < m.row + m.rowSpan)) return row
+    return {
+      ...row,
+      cells: row.cells.map((cell, c) => {
+        const m = kept.find((k) => contains(k, r, c))
+        return m && (m.row !== r || m.col !== c) ? '' : cell
+      }),
+    }
+  })
+  return next
+}
+
+/** 줄(행 또는 열) 하나를 at 위치에 끼워 넣었을 때 병합을 맞춘다. 병합 안쪽에 끼우면 그만큼 늘어난다. */
+function shiftForInsert(merges: CellMerge[], axis: 'row' | 'col', at: number): CellMerge[] {
+  return merges.map((m) => {
+    const start = axis === 'row' ? m.row : m.col
+    const span = axis === 'row' ? m.rowSpan : m.colSpan
+    if (start >= at) return axis === 'row' ? { ...m, row: m.row + 1 } : { ...m, col: m.col + 1 }
+    if (at < start + span) return axis === 'row' ? { ...m, rowSpan: m.rowSpan + 1 } : { ...m, colSpan: m.colSpan + 1 }
+    return m
+  })
+}
+
+/**
+ * 줄 하나를 지웠을 때 병합을 맞춘다.
+ * 병합의 첫 줄이 지워지면 다음 줄이 왼쪽 위 셀이 되므로 내용을 그리로 옮긴다.
+ */
+function shiftForRemove(table: TableData, axis: 'row' | 'col', at: number): TableData {
+  let rows = table.rows
+  const merges: CellMerge[] = []
+  for (const m of mergesOf(table)) {
+    const start = axis === 'row' ? m.row : m.col
+    const span = axis === 'row' ? m.rowSpan : m.colSpan
+    if (start > at) {
+      merges.push(axis === 'row' ? { ...m, row: m.row - 1 } : { ...m, col: m.col - 1 })
+    } else if (start + span - 1 < at) {
+      merges.push(m)
+    } else if (span > 1) {
+      merges.push(axis === 'row' ? { ...m, rowSpan: m.rowSpan - 1 } : { ...m, colSpan: m.colSpan - 1 })
+      if (start === at) {
+        // 지워지기 전 표 기준: 원래 왼쪽 위 셀의 내용을 다음 줄의 같은 자리로 옮긴다.
+        const text = table.rows[m.row].cells[m.col]
+        const target = axis === 'row' ? { r: m.row + 1, c: m.col } : { r: m.row, c: m.col + 1 }
+        rows = rows.map((row, r) =>
+          r === target.r ? { ...row, cells: row.cells.map((cell, c) => (c === target.c ? text : cell)) } : row,
+        )
+      }
+    }
+  }
+  return { ...table, rows, merges }
+}
+
+/** 줄 순서를 바꿨을 때 병합을 맞춘다. 병합한 줄들이 흩어지면 그 병합은 푼다. */
+function remapMerges(merges: CellMerge[], axis: 'row' | 'col', newIndexOf: (old: number) => number): CellMerge[] {
+  return merges.flatMap((m) => {
+    const start = axis === 'row' ? m.row : m.col
+    const span = axis === 'row' ? m.rowSpan : m.colSpan
+    const first = newIndexOf(start)
+    for (let k = 1; k < span; k += 1) if (newIndexOf(start + k) !== first + k) return []
+    return [axis === 'row' ? { ...m, row: first } : { ...m, col: first }]
+  })
+}
+
+function moveIndexMap(length: number, from: number, to: number): (old: number) => number {
+  const order = moveAt(Array.from({ length }, (_, i) => i), from, to)
+  const newIndex = new Array<number>(length)
+  order.forEach((old, index) => {
+    newIndex[old] = index
+  })
+  return (old) => newIndex[old]
 }
 
 // ------------------------------------------------------------------ 배열 유틸
@@ -102,36 +320,49 @@ function moveAt<T>(list: T[], from: number, to: number): T[] {
 
 export function insertColumn(table: TableData, at: number): TableData {
   const index = Math.max(0, Math.min(at, table.columns.length))
-  return {
-    ...table,
-    columns: insertAt(table.columns, index, newColumn()),
-    rows: table.rows.map((row) => ({ ...row, cells: insertAt(row.cells, index, '') })),
-  }
+  return withMerges(
+    {
+      ...table,
+      columns: insertAt(table.columns, index, newColumn()),
+      rows: table.rows.map((row) => ({ ...row, cells: insertAt(row.cells, index, '') })),
+    },
+    shiftForInsert(mergesOf(table), 'col', index),
+  )
 }
 
 export function duplicateColumn(table: TableData, at: number): TableData {
-  return {
-    ...table,
-    columns: insertAt(table.columns, at + 1, newColumn(table.columns[at].width)),
-    rows: table.rows.map((row) => ({ ...row, cells: insertAt(row.cells, at + 1, row.cells[at]) })),
-  }
+  return withMerges(
+    {
+      ...table,
+      columns: insertAt(table.columns, at + 1, newColumn(table.columns[at].width)),
+      rows: table.rows.map((row) => ({ ...row, cells: insertAt(row.cells, at + 1, row.cells[at]) })),
+    },
+    shiftForInsert(mergesOf(table), 'col', at + 1),
+  )
 }
 
 export function removeColumn(table: TableData, at: number): TableData {
   if (table.columns.length <= 1) return table
-  return {
-    ...table,
-    columns: removeAt(table.columns, at),
-    rows: table.rows.map((row) => ({ ...row, cells: removeAt(row.cells, at) })),
-  }
+  const shifted = shiftForRemove(table, 'col', at)
+  return withMerges(
+    {
+      ...shifted,
+      columns: removeAt(table.columns, at),
+      rows: shifted.rows.map((row) => ({ ...row, cells: removeAt(row.cells, at) })),
+    },
+    mergesOf(shifted),
+  )
 }
 
 export function moveColumn(table: TableData, from: number, to: number): TableData {
-  return {
-    ...table,
-    columns: moveAt(table.columns, from, to),
-    rows: table.rows.map((row) => ({ ...row, cells: moveAt(row.cells, from, to) })),
-  }
+  return withMerges(
+    {
+      ...table,
+      columns: moveAt(table.columns, from, to),
+      rows: table.rows.map((row) => ({ ...row, cells: moveAt(row.cells, from, to) })),
+    },
+    remapMerges(mergesOf(table), 'col', moveIndexMap(table.columns.length, from, to)),
+  )
 }
 
 export function resizeColumn(table: TableData, at: number, width: number): TableData {
@@ -163,20 +394,30 @@ export function clearColumn(table: TableData, at: number): TableData {
 
 export function insertRow(table: TableData, at: number): TableData {
   const index = Math.max(0, Math.min(at, table.rows.length))
-  return { ...table, rows: insertAt(table.rows, index, newRow(table.columns.length)) }
+  return withMerges(
+    { ...table, rows: insertAt(table.rows, index, newRow(table.columns.length)) },
+    shiftForInsert(mergesOf(table), 'row', index),
+  )
 }
 
 export function duplicateRow(table: TableData, at: number): TableData {
-  return { ...table, rows: insertAt(table.rows, at + 1, newRow(table.columns.length, table.rows[at].cells)) }
+  return withMerges(
+    { ...table, rows: insertAt(table.rows, at + 1, newRow(table.columns.length, table.rows[at].cells)) },
+    shiftForInsert(mergesOf(table), 'row', at + 1),
+  )
 }
 
 export function removeRow(table: TableData, at: number): TableData {
   if (table.rows.length <= 1) return table
-  return { ...table, rows: removeAt(table.rows, at) }
+  const shifted = shiftForRemove(table, 'row', at)
+  return withMerges({ ...shifted, rows: removeAt(shifted.rows, at) }, mergesOf(shifted))
 }
 
 export function moveRow(table: TableData, from: number, to: number): TableData {
-  return { ...table, rows: moveAt(table.rows, from, to) }
+  return withMerges(
+    { ...table, rows: moveAt(table.rows, from, to) },
+    remapMerges(mergesOf(table), 'row', moveIndexMap(table.rows.length, from, to)),
+  )
 }
 
 export function setRowColor(table: TableData, at: number, color?: string): TableData {

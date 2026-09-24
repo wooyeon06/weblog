@@ -1,8 +1,9 @@
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { TableContext, type Axis, type CellPos, type MenuTarget } from '../components/editor/table/TableContextProvider';
-import { insertRow, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, moveColumn, moveRow, resizeColumn } from '../lib/table';
+import { insertRow, isCoveredCell, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, moveColumn, moveRow, resizeColumn } from '../lib/table';
 import type { TableData } from '../types';
+import { fieldOf } from '../lib/editableField';
 
 /** 이 거리(px)를 넘겨야 드래그로 인정한다. (손잡이 클릭으로 메뉴를 열 수 있게) */
 export const DRAG_THRESHOLD = 4
@@ -184,7 +185,7 @@ export function useTableEventHandler() {
 
   const findCell = useCallback(
     (row: number, column: number) =>
-      frameRef.current?.querySelector<HTMLTextAreaElement>(`[data-cell="${row}:${column}"]`) ?? null,
+      fieldOf(frameRef.current?.querySelector(`[data-cell="${row}:${column}"]`)),
     [frameRef],
   )
 
@@ -195,7 +196,7 @@ export function useTableEventHandler() {
     onChange(next)
   }, [pendingCellRef, setMenu, onChange])
 
-  const handleCellKeyDown = useCallback((event: KeyboardEvent<HTMLTextAreaElement>, row: number, column: number) => {
+  const handleCellKeyDown = useCallback((event: KeyboardEvent<HTMLElement>, row: number, column: number) => {
     const target = event.currentTarget
     const lastRow = rows.length - 1
     const lastColumn = columns.length - 1
@@ -207,20 +208,28 @@ export function useTableEventHandler() {
 
     if (event.key === 'Tab') {
       event.preventDefault()
-      if (event.shiftKey) {
-        if (column > 0) findCell(row, column - 1)?.focus()
-        else if (row > 0) findCell(row - 1, lastColumn)?.focus()
+      // 병합으로 가려진 셀은 건너뛰고 다음(이전) 셀로 간다.
+      const step = event.shiftKey ? -1 : 1
+      let r = row
+      let c = column
+      do {
+        c += step
+        if (c > lastColumn) {
+          c = 0
+          r += 1
+        } else if (c < 0) {
+          c = lastColumn
+          r -= 1
+        }
+      } while (r >= 0 && r <= lastRow && isCoveredCell(table, r, c))
+      if (r >= 0 && r <= lastRow) {
+        // 옮겨 간 셀은 내용 끝에서 이어 쓴다.
+        const next = findCell(r, c)
+        next?.focus()
+        next?.setSelectionRange(next.value.length, next.value.length)
         return
       }
-      if (column < lastColumn) {
-        findCell(row, column + 1)?.focus()
-        return
-      }
-      if (row < lastRow) {
-        findCell(row + 1, 0)?.focus()
-        return
-      }
-      apply(insertRow(table, rows.length), { row: rows.length, column: 0 })
+      if (step > 0) apply(insertRow(table, rows.length), { row: rows.length, column: 0 })
       return
     }
   }, [rows, columns, table, findCell, apply])

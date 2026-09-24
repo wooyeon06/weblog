@@ -1,5 +1,6 @@
 import type { Block, BlockType, Post } from '../types'
 import { uid } from './id'
+import { plainText } from './inlineMarkdown'
 import { newTable, parseMarkdownTable, tableToMarkdown, tableToPlainText } from './table'
 
 export const MAX_INDENT = 3
@@ -131,7 +132,9 @@ export function blocksToMarkdown(blocks: Block[]): string {
 export function blocksToPlainText(blocks: Block[]): string {
   return blocks
     .filter((block) => block.type !== 'divider' && block.type !== 'image')
-    .map((block) => (block.type === 'table' ? tableToPlainText(block.table) : block.text))
+    .map((block) =>
+      block.type === 'table' ? tableToPlainText(block.table) : block.type === 'code' ? block.text : plainText(block.text),
+    )
     .join(' ')
     .replace(/[*_`#>]/g, '')
     .replace(/\s+/g, ' ')

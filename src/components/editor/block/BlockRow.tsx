@@ -2,12 +2,14 @@ import './BlockRow.scss'
 
 import type { ClipboardEvent, KeyboardEvent, PointerEvent, ReactNode, Ref } from 'react'
 import { createContext, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { PLACEHOLDERS } from '../../lib/blocks'
-import { normalizeTable } from '../../lib/table'
-import { BlockType, type Block, type TableData } from '../../types'
-import BlockMenu from './BlockMenu'
-import { SLASH_ITEMS } from './slashItems'
-import { TableBlockWrapper } from './table/TableBlockWrapper'
+import { PLACEHOLDERS } from '../../../lib/blocks'
+import { normalizeTable } from '../../../lib/table'
+import type { EditableField, RichField } from '../../../lib/editableField'
+import { BlockType, type Block, type TableData } from '../../../types'
+import BlockMenu from '../BlockMenu'
+import { SLASH_ITEMS } from '../../../lib/slashItems'
+import { TableBlockWrapper } from '../table/TableBlockWrapper'
+import { RichInput } from '../rich/RichInput'
 
 export type BlockAction = 'moveUp' | 'moveDown' | 'duplicate' | 'delete'
 
@@ -18,10 +20,10 @@ type BlockRowProps = {
   block: Block
   listNumber?: number
   isActive: boolean
-  registerRef: (id: string, element: HTMLTextAreaElement | null) => void
+  registerRef: (id: string, element: EditableField | null) => void
   onTextChange: (id: string, text: string, caret: number) => void
-  onKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>, id: string) => void
-  onPaste: (event: ClipboardEvent<HTMLTextAreaElement>, id: string) => void
+  onKeyDown: (event: KeyboardEvent<HTMLElement>, id: string) => void
+  onPaste: (event: ClipboardEvent<HTMLElement>, id: string) => void
   onFocus: (id: string) => void
   onToggleCheck: (id: string) => void
   onAddBelow: (id: string) => void
@@ -65,8 +67,9 @@ export function BlockGhost({
   )
 }
 
-
+// eslint-disable-next-line react-refresh/only-export-components
 export const BlockRowContext = createContext<BlockRowProps>({} as BlockRowProps);
+
 export const BlockRowProvider = ({children, props} :  {props : BlockRowProps, children : ReactNode}) => {
   return (
       <BlockRowContext.Provider value={props}>
@@ -99,11 +102,17 @@ export function BlockRow(props: BlockRowProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const isDivider = block.type === BlockType.DIVIDER;
   const isTable = block.type === BlockType.TABLE
+  /** 코드 블록은 서식 없이 글자 그대로 다루므로 textarea 를 쓴다. 구분선은 키 입력만 받는 숨은 textarea. */
+  const isPlain = block.type === BlockType.CODE || isDivider
 
   // 저장소에서 온 값을 믿지 않고 항상 직사각형으로 맞춰서 넘긴다.
   const table = useMemo(() => (isTable ? normalizeTable(block.table) : null), [isTable, block.table])
   const registerTableCell = useCallback(
-    (element: HTMLTextAreaElement | null) => registerRef(block.id, element),
+    (element: EditableField | null) => registerRef(block.id, element),
+    [registerRef, block.id],
+  )
+  const registerRichField = useCallback(
+    (field: RichField | null) => registerRef(block.id, field),
     [registerRef, block.id],
   )
 
@@ -112,7 +121,7 @@ export function BlockRow(props: BlockRowProps) {
     if (!element || isDivider) return
     element.style.height = 'auto'
     element.style.height = `${element.scrollHeight}px`
-  }, [block.text, block.type, isDivider])
+  }, [block.text, block.type, isDivider, isPlain])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -219,6 +228,17 @@ export function BlockRow(props: BlockRowProps) {
               onChange={(next) => onTableChange(block.id, next)}
               onFocus={() => onFocus(block.id)}
               registerFirstCell={registerTableCell}
+            />
+          ) : !isPlain ? (
+            <RichInput
+              fieldRef={registerRichField}
+              className={`block__input${block.type === 'todo' && block.checked ? ' block__input--done' : ''}`}
+              value={block.text}
+              placeholder={placeholder}
+              onChange={(text, caret) => onTextChange(block.id, text, caret)}
+              onKeyDown={(event) => onKeyDown(event, block.id)}
+              onPaste={(event) => onPaste(event, block.id)}
+              onFocus={() => onFocus(block.id)}
             />
           ) : (
             <textarea

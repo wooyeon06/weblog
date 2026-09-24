@@ -10,14 +10,16 @@ import {
 } from '../../lib/blocks'
 import { usePostStore } from '../../storage/usePostStore'
 import { BlockType, type Block, type Post, type TableData } from '../../types'
-import type { BlockAction } from './BlockRow'
-import { BlockGhost, BlockRow } from './BlockRow'
-import { PostView } from './PostView'
+import type { BlockAction } from './block/BlockRow'
+import { BlockGhost, BlockRow } from './block/BlockRow'
+import { PostView } from '../postview/PostView'
 import { SlashMenu } from './SlashMenu'
+import { SelectionToolbar } from './block/SelectionToolbar'
 import { EditorContext } from '../../pages/EditorPage'
 import useBlockHandler from '../../hooks/useBlockHandler'
 import Tag from './Tag'
 import { useDragBlockRow } from '../../hooks/useDragBlockRow'
+import type { EditableField } from '../../lib/editableField'
 
 const EMOJIS = ['📝', '💡', '🚀', '🌱', '📚', '🧠', '☕', '🎨', '🔧', '🐛', '✨', '🗺️']
 
@@ -49,7 +51,7 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
   const { listRef, dragIdx, overIdx, ghost, ghostRef, startReorder } = useDragBlockRow();
 
   //EventHandler
-  const { slashItems, pendingFocus, focusBlock, applySlashItem,
+  const { slashItems, pendingFocusRef, focusBlock, applySlashItem,
     commitBlocks, patch, handleTextChange, closeSlash, handleKeyDown, handlePaste } = useBlockHandler();
   
   //Provider Context
@@ -65,17 +67,21 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
     activeIdRef.current = activeId
   }, [activeId])
 
-  const registerRef = useCallback((id: string, element: HTMLTextAreaElement | null) => {
+  const registerRef = useCallback((id: string, element: EditableField | null) => {
     if (element) inputs.current.set(id, element)
     else inputs.current.delete(id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
-    const request = pendingFocus.current
+    const request = pendingFocusRef.current
     if (!request) return
+
     const element = inputs.current.get(request.id)
     if (!element) return
-    pendingFocus.current = null
+
+    pendingFocusRef.current = null
+
     element.focus()
     const caret = Math.min(request.caret, element.value.length)
     element.setSelectionRange(caret, caret)
@@ -153,7 +159,7 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
     focusBlock(last.id, last.text.length)
     if (blocks.length !== post.blocks.length) commitBlocks(blocks)
     else inputs.current.get(last.id)?.focus()
-  }, [commitBlocks, focusBlock, post.blocks])
+  }, [commitBlocks, focusBlock, inputs, post.blocks])
 
   // ------------------------------------------------------------- AI 삽입 API
 
@@ -186,7 +192,7 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
         return element.value.slice(element.selectionStart, element.selectionEnd)
       },
     }),
-    [commitBlocks, focusBlock, post.blocks],
+    [commitBlocks, focusBlock, inputs, post, setActiveId],
   )
 
   
@@ -337,6 +343,8 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
       </div>
 
       {ghost && <BlockGhost ref={ghostRef} block={ghost.block} width={ghost.width} />}
+
+      {!preview && <SelectionToolbar containerRef={listRef} />}
 
       {slash && slashItems.length > 0 && (
         <SlashMenu

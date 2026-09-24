@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { SlashItem } from './slashItems'
+import type { SlashItem } from '../../lib/slashItems'
 
 type SlashMenuProps = {
   items: SlashItem[]
