@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { EditorContext } from "../pages/EditorPage";
 import type { Block } from "../types";
 import usePostHandler from "./usePostHandler";
@@ -27,6 +27,16 @@ function scrollParentOf(node: HTMLElement | null): HTMLElement | null {
   return null
 }
 
+/**
+ * 블록 드래그 상태는 에디터에 하나만 있어야 한다. (고스트·삽입선을 Editor 와 각 행이 함께 본다)
+ * 그래서 훅은 BlockDragProvider 에서 한 번만 호출하고, 나머지는 useBlockDrag() 로 꺼내 쓴다.
+ */
+export const BlockDragContext = createContext<ReturnType<typeof useDragBlockRow>>(
+    {} as ReturnType<typeof useDragBlockRow>,
+);
+
+export const useBlockDrag = () => useContext(BlockDragContext);
+
 export function useDragBlockRow() {
     const { activePost: post } = usePostHandler();
     const { commitBlocks } = useContext(EditorContext);
@@ -52,8 +62,8 @@ export function useDragBlockRow() {
 
     /** 고스트는 리렌더 없이 transform 만 직접 갱신한다. (pointermove 마다 리렌더하면 본문이 버벅인다) */
     const ghostNodeRef = useRef<HTMLDivElement | null>(null);
-    const posRef = useRef({ x: 0, y: 0 });
-    const grabRef = useRef({ x: 0, y: 0 });
+    const posRef = useRef({ x: 0, y: 0 }); //현재 위치
+    const grabRef = useRef({ x: 0, y: 0 }); //그랩 위치
 
     /** 언마운트 시 남아있는 리스너/클래스를 정리하기 위한 훅 */
     const cleanupRef = useRef<(() => void) | null>(null);
@@ -73,9 +83,15 @@ export function useDragBlockRow() {
         if (node) paintGhost()
     }, [paintGhost]);
 
-    const startReorder = useCallback((e: ReactPointerEvent, index: number) => {
+    /**
+     * ⋮⋮ 손잡이를 누르면 호출한다. 일정 거리 이상 움직여야 실제 드래그가 시작된다.
+     * @param id 끌기 시작한 블록 id
+     */
+    const startReorder = useCallback((e: ReactPointerEvent, id: string) => {
         if (e.pointerType === 'mouse' && e.button !== 0) return
         if (cleanupRef.current) return
+        const index = blocksRef.current.findIndex((block) => block.id === id)
+        if (index < 0) return
 
         const row = (e.currentTarget as HTMLElement).closest('.block') as HTMLElement | null
         const startX = e.clientX
@@ -208,9 +224,24 @@ export function useDragBlockRow() {
         document.addEventListener('keydown', onKeyDown)
     }, [paintGhost]);
 
+    /** 행이 자기 인덱스를 몰라도 되도록 인덱스를 블록 id 로 바꿔서 내보낸다. */
+    const { draggingId, dropBeforeId, dropAfterId } = useMemo(() => {
+        const blocks = post?.blocks ?? []
+        if (dragIdx === null || overIdx === null) return { draggingId: null, dropBeforeId: null, dropAfterId: null }
+        // overIdx 는 "이 블록 앞에 넣는다"는 뜻. 제자리로 돌아가는 위치에는 선을 그리지 않는다.
+        const stays = overIdx === dragIdx || overIdx === dragIdx + 1
+        return {
+            draggingId: blocks[dragIdx]?.id ?? null,
+            dropBeforeId: !stays && overIdx < blocks.length ? blocks[overIdx].id : null,
+            /** 문서 끝에 넣을 때는 마지막 블록 "아래"에 선을 그린다. */
+            dropAfterId: !stays && overIdx === blocks.length ? blocks[blocks.length - 1]?.id ?? null : null,
+        }
+    }, [dragIdx, overIdx, post?.blocks]);
+
     return {
-        dragIdx,
-        overIdx,
+        draggingId,
+        dropBeforeId,
+        dropAfterId,
         ghost,
         ghostRef,
         listRef,

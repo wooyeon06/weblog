@@ -45,7 +45,15 @@ export const isSafeHref = (href: string) => SAFE_PROTOCOL.test(href)
 /** 조각 목록을 DOM 으로 그린다. 태그 구성은 읽기 화면(RichText)과 같다. */
 function buildNodes(runs: Run[]): DocumentFragment {
   const fragment = document.createDocumentFragment()
-  for (const run of runs) {
+  const isCode = (run: Run | undefined) => !!run?.marks.includes('code')
+  runs.forEach((run, index) => {
+    // 인라인 코드 앞뒤에는 항상 커서 자리를 둔다.
+    // 코드 끝과 바로 뒤 글자의 맨 앞은 화면상 같은 위치라, 브라우저는 글자를 칠 때 코드 끝(안)을 고른다.
+    // 사이에 커서 자리 글자가 있어야 "코드 밖" 위치가 따로 생겨 코드와 평문 사이에 쓸 수 있다.
+    const prev = runs[index - 1]
+    if (isCode(run) || isCode(prev)) {
+      fragment.appendChild(document.createTextNode(CARET_ANCHOR))
+    }
     let node: Node = document.createTextNode(run.text)
     const wrap = (element: HTMLElement) => {
       element.appendChild(node)
@@ -81,10 +89,9 @@ function buildNodes(runs: Run[]): DocumentFragment {
       wrap(anchor)
     }
     fragment.appendChild(node)
-  }
-  // 인라인 코드로 끝나는 블록은 코드 뒤에 커서 자리를 둔다.
-  // 없으면 End 키·줄 끝 클릭 때 커서가 코드 안에 갇혀 평문을 이어 쓸 수 없다.
-  if (runs[runs.length - 1]?.marks.includes('code')) fragment.appendChild(document.createTextNode(CARET_ANCHOR))
+  })
+  // 인라인 코드로 끝나는 블록은 코드 뒤에 커서 자리를 둔다. (End 키·줄 끝 클릭 때 평문을 이어 쓸 수 있게)
+  if (isCode(runs[runs.length - 1])) fragment.appendChild(document.createTextNode(CARET_ANCHOR))
   // pre-wrap 에서 끝의 줄바꿈은 뒤에 무언가 있어야 빈 줄로 보인다.
   if (runs[runs.length - 1]?.text.endsWith('\n')) fragment.appendChild(document.createElement('br'))
   return fragment
@@ -152,6 +159,8 @@ function rawOffset(data: string, visible: number): number {
   return data.length
 }
 
+const inCode = (node: Node) => !!node.parentElement?.closest('code')
+
 /**
  * 화면 글자 위치 → DOM 위치. 조각 경계에서는 `bias` 쪽 텍스트 노드 안에 둔다.
  * 같은 위치에 커서 자리(CARET_ANCHOR)가 있으면 그쪽을 고른다. (서식 밖에서 이어 쓰도록)
@@ -170,6 +179,9 @@ function plainToPoint(root: HTMLElement, plain: number, bias: 'before' | 'after'
         for (let j = i + 1; j < nodes.length && !stripAnchors(nodes[j].data); j += 1) {
           if (nodes[j].data) return [nodes[j], nodes[j].data.length]
         }
+        // 인라인 코드 끝이면 바로 뒤 코드 밖 글자 맨 앞에 둔다. (이어 치는 글자가 코드에 들어가지 않게)
+        const next = nodes[i + 1]
+        if (next && inCode(node) && !inCode(next)) return [next, 0]
       }
       return [node, rawOffset(node.data, Math.max(0, plain - offset))]
     }
@@ -272,6 +284,43 @@ export class RichField implements EditableField {
   }
 
   /**
+   * 화살표가 커서 자리 글자(CARET_ANCHOR)를 넘을 때 쓴다.
+   * 브라우저는 보이지 않는 글자도 한 칸으로 세서, 커서가 그대로인데 키만 먹는 자리가 생긴다.
+   * 화면 위치나 코드 안/밖이 바뀔 때까지 이어서 옮긴다.
+   * @returns 직접 옮겼는지 (false 면 브라우저 기본 동작에 맡긴다)
+   */
+  skipCaretAnchor(direction: 'left' | 'right'): boolean {
+    const selection = window.getSelection()
+    if (!selection?.rangeCount || !selection.isCollapsed) return false
+    const node = selection.anchorNode
+    if (!node || node.nodeType !== Node.TEXT_NODE || !this.root.contains(node)) return false
+
+    // 옮길 방향의 바로 옆 글자가 커서 자리인지 본다. (노드 끝이면 이웃 텍스트 노드의 글자)
+    const text = node as Text
+    const offset = selection.anchorOffset
+    let neighbor: string | undefined = direction === 'left' ? text.data[offset - 1] : text.data[offset]
+    if (neighbor === undefined) {
+      const walker = document.createTreeWalker(this.root, NodeFilter.SHOW_TEXT)
+      walker.currentNode = text
+      const adjacent = (direction === 'left' ? walker.previousNode() : walker.nextNode()) as Text | null
+      neighbor = adjacent ? (direction === 'left' ? adjacent.data[adjacent.data.length - 1] : adjacent.data[0]) : undefined
+    }
+    if (neighbor !== CARET_ANCHOR) return false
+
+    const state = () => {
+      const current = selection.anchorNode
+      return `${this.plainSelection()[0]}:${current ? inCode(current) : false}`
+    }
+    const start = state()
+    // 커서 자리가 여러 개 붙어 있어도 몇 번이면 충분하다. 끝에 닿아 더 못 가면 그대로 둔다.
+    for (let i = 0; i < 4; i += 1) {
+      selection.modify('move', direction === 'left' ? 'backward' : 'forward', 'character')
+      if (state() !== start) break
+    }
+    return true
+  }
+
+  /**
    * 커서가 인라인 코드의 경계에 있으면 그 요소 밖으로 나가게 한다.
    * 오른쪽 화살표면 코드 뒤, 왼쪽 화살표면 코드 앞에서 빠져나간다.
    * 이후 치는 글자는 서식 없이 들어간다.
@@ -303,14 +352,16 @@ export class RichField implements EditableField {
     const next = direction === 'right' ? code.nextSibling : code.previousSibling
     if (next && next.nodeType === Node.TEXT_NODE) {
       const text = next as Text
-      const pos = direction === 'right' ? text.data.length : 0
+      // 코드 바로 바깥: 오른쪽이면 뒤 글자의 커서 자리 뒤, 왼쪽이면 앞 글자의 맨 끝
+      // (커서 자리 앞은 코드 끝과 같은 위치로 취급돼 치는 글자가 코드에 들어간다)
+      const pos = direction === 'right' ? text.data.length - text.data.replace(new RegExp(`^${CARET_ANCHOR}+`), '').length : text.data.length
       selection.setBaseAndExtent(text, pos, text, pos)
       return true
     }
 
+    // 코드는 굵게·링크 등에 감싸여 있을 수 있으므로 root 가 아니라 코드의 부모에 넣는다.
     const anchor = document.createTextNode(CARET_ANCHOR)
-    if (direction === 'right') this.root.insertBefore(anchor, next)
-    else this.root.insertBefore(anchor, code)
+    code.parentNode!.insertBefore(anchor, direction === 'right' ? next : code)
     selection.setBaseAndExtent(anchor, anchor.data.length, anchor, anchor.data.length)
     return true
   }

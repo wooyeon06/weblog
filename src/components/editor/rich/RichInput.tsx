@@ -203,9 +203,13 @@ export function RichInput({
       return
     }
 
-    if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && window.getSelection()?.isCollapsed) {
+    if (
+      (event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+      !mod && !event.shiftKey && !event.altKey &&
+      window.getSelection()?.isCollapsed
+    ) {
       const direction = event.key === 'ArrowLeft' ? 'left' : 'right'
-      if (field().exitFormatting(true, direction)) {
+      if (field().skipCaretAnchor(direction) || field().exitFormatting(true, direction)) {
         event.preventDefault()
         return
       }

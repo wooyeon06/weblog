@@ -1,11 +1,10 @@
-import { useCallback, useContext, useMemo, useRef, type ClipboardEvent, type KeyboardEvent } from "react"
-import { filterSlashItems, type SlashItem } from "../lib/slashItems"
-import { isListType, markdownToBlocks, matchShortcut, MAX_INDENT, newBlock } from "../lib/blocks"
+import { useCallback, useContext, type ClipboardEvent, type KeyboardEvent } from "react"
+import { isListType, markdownToBlocks, matchShortcut, newBlock } from "../lib/blocks"
 import type { EditableField } from "../lib/editableField"
 import { joinInline, plainText, splitInline } from "../lib/inlineMarkdown"
-import { newTable } from "../lib/table"
 import { EditorContext } from "../pages/EditorPage"
 import type { BlockType } from "../types"
+import { useBlockUtils } from "./useBlockUtils"
 
 /** 인라인 서식을 해석하는 블록인지. (코드 블록은 글자 그대로 다룬다) */
 const isRichType = (type: BlockType) => type !== 'code'
@@ -16,82 +15,11 @@ function anchorOf(element: EditableField | null) {
   return { left: rect.left, top: rect.top, bottom: rect.bottom }
 }
 
-export default function useBlockHandler() {
-  const { slash, slashIndex, setActiveId, setSlash, setSlashIndex, patch, commitBlocks, 
-    inputs, activePost : post } = useContext(EditorContext);
-  
-
-  //=============================== Focus [S] ===============================
-  const pendingFocusRef = useRef<{ id: string; caret: number } | null>(null);
-  const focusBlock = useCallback((id: string, caret: number) => {
-    pendingFocusRef.current = { id, caret }
-  }, [])
-  //=============================== Focus [E] ===============================
-
-  //=============================== Slash [S] ===============================
-  const slashItems = useMemo(() => (slash ? filterSlashItems(slash.query) : []), [slash]);
-  const closeSlash = useCallback(() => {
-    setSlash(null)
-    setSlashIndex(0)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  //=============================== Slash [E] ===============================
-
-  /**
-   * 블록 타입 변경
-   * @param item 변경할 블록의 인덱스
-   */
-  const applySlashItem = useCallback(
-    (item: SlashItem) => {
-      if (!slash || !post) return
-      const index = post.blocks.findIndex((block) => block.id === slash.blockId)
-      if (index < 0) return closeSlash()
-      const current = post.blocks[index]
-      const text = current.text
-      const nextText = text.slice(0, slash.start) + text.slice(slash.start + 1 + slash.query.length)
-      const blocks = post.blocks.slice()
-
-      if (item.type === 'divider' || item.type === 'table') {
-        // 본문을 담지 않는 블록이므로 남은 텍스트는 뒤따르는 새 블록으로 넘긴다.
-        blocks[index] = { ...current, type: item.type, text: '', checked: undefined }
-        if (item.type === 'table') blocks[index].table = newTable()
-        const next = newBlock('text', nextText, current.indent)
-        blocks.splice(index + 1, 0, next)
-        // 표는 첫 셀이 포커스 대상으로 등록돼 있어 바로 입력할 수 있다.
-        focusBlock(item.type === 'table' ? current.id : next.id, 0)
-      } else {
-        blocks[index] = {
-          ...current,
-          type: item.type,
-          text: nextText,
-          checked: item.type === 'todo' ? false : undefined,
-        }
-        focusBlock(current.id, slash.start)
-      }
-
-      closeSlash()
-      commitBlocks(blocks)
-    },
-    [closeSlash, commitBlocks, focusBlock, post, slash],
-  )
-
-  /**
-   * 블록 들여쓰기 변경
-   * @param index 변경할 블록의 인덱스
-   * @param delta 들여쓰기 단계 변경량 (1 또는 -1)
-   */
-  const setIndent = useCallback(
-    (index: number, delta: number) => {
-      if(!post) return;
-      const blocks = post.blocks.slice()
-      const current = blocks[index]
-      const indent = Math.max(0, Math.min(MAX_INDENT, current.indent + delta))
-      if (indent === current.indent) return
-      blocks[index] = { ...current, indent }
-      commitBlocks(blocks)
-    },
-    [commitBlocks, post],
-  )
+/** 블록 입력칸의 이벤트(키보드, 붙여넣기, 텍스트 변경)를 처리한다. */
+export function useBlockEventHandler() {
+  const { slash, slashIndex, slashItems, closeSlash, focusBlock, setActiveId, setSlash, setSlashIndex,
+    commitBlocks, inputs, activePost : post } = useContext(EditorContext);
+  const { applySlashItem, setIndent, duplicateBlock } = useBlockUtils();
 
   /**
    * 키보드 이벤트 처리
@@ -291,28 +219,14 @@ export default function useBlockHandler() {
         current.text
       ) {
         event.preventDefault();
-        const index = post.blocks.findIndex((block) => block.id === id);
-        if(index <= 0) return;
-
-        const blocks = post.blocks.slice()
-        const current = blocks[index]
-        const copy = { ...current, id: newBlock().id } // 새 id로 복제
-
-        if( event.key === 'ArrowUp') {
-          // Alt + ↑ : 현재 블록 위에 복사본 삽입
-          blocks.splice(index, 0, copy);
-        } else if( event.key === 'ArrowDown') {
-          // Alt + ↓ : 현재 블록 아래에 복사본 삽입
-          blocks.splice(index + 1, 0, copy);
-        }
-        focusBlock(copy.id, caret);
-        setActiveId(copy.id);
-        commitBlocks(blocks);
+        // Alt + ↑ : 현재 블록 위에, Alt + ↓ : 아래에 복사본 삽입
+        const copy = duplicateBlock(id, event.key === 'ArrowUp' ? 'above' : 'below', caret);
+        if (copy) setActiveId(copy.id);
         return;
       }
 
     },
-    [applySlashItem, closeSlash, commitBlocks, focusBlock, inputs, post, setActiveId, setIndent, setSlashIndex, slash, slashIndex, slashItems],
+    [applySlashItem, closeSlash, commitBlocks, duplicateBlock, focusBlock, inputs, post, setActiveId, setIndent, setSlashIndex, slash, slashIndex, slashItems],
   )
 
   /**
@@ -466,13 +380,9 @@ export default function useBlockHandler() {
     [closeSlash, commitBlocks, focusBlock, inputs, post, setSlash, setSlashIndex, slash],
   )
 
-
   return {
-    slashItems,
-    pendingFocusRef, focusBlock,
-    commitBlocks, patch,
-    handleTextChange, handleKeyDown,
+    handleKeyDown,
     handlePaste,
-    closeSlash, applySlashItem,
+    handleTextChange,
   }
 }

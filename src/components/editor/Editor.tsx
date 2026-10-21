@@ -9,17 +9,15 @@ import {
   postWordCount
 } from '../../lib/blocks'
 import { usePostStore } from '../../storage/usePostStore'
-import { BlockType, type Block, type Post, type TableData } from '../../types'
-import type { BlockAction } from './block/BlockRow'
+import { BlockType, type Block, type Post } from '../../types'
 import { BlockGhost, BlockRow } from './block/BlockRow'
 import { PostView } from '../postview/PostView'
 import { SlashMenu } from './SlashMenu'
 import { SelectionToolbar } from './block/SelectionToolbar'
 import { EditorContext } from '../../pages/EditorPage'
-import useBlockHandler from '../../hooks/useBlockHandler'
+import { useBlockUtils } from '../../hooks/useBlockUtils'
 import Tag from './Tag'
-import { useDragBlockRow } from '../../hooks/useDragBlockRow'
-import type { EditableField } from '../../lib/editableField'
+import { useBlockDrag } from '../../hooks/useDragBlockRow'
 
 const EMOJIS = ['📝', '💡', '🚀', '🌱', '📚', '🧠', '☕', '🎨', '🔧', '🐛', '✨', '🗺️']
 
@@ -48,14 +46,14 @@ function withTrailingBlock(blocks: Block[]): Block[] {
 
 export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
   const { deletePost } = usePostStore();
-  const { listRef, dragIdx, overIdx, ghost, ghostRef, startReorder } = useDragBlockRow();
+  const { listRef, ghost, ghostRef } = useBlockDrag();
 
-  //EventHandler
-  const { slashItems, pendingFocusRef, focusBlock, applySlashItem,
-    commitBlocks, patch, handleTextChange, closeSlash, handleKeyDown, handlePaste } = useBlockHandler();
-  
+  //Utils (블록 편집 이벤트는 BlockRow 가 직접 훅에서 가져온다)
+  const { applySlashItem } = useBlockUtils();
+
   //Provider Context
-  const { activeId, setActiveId, slash, slashIndex, setSlashIndex, inputs} = useContext(EditorContext);
+  const { activeId, setActiveId, slash, slashIndex, setSlashIndex, slashItems, closeSlash,
+    pendingFocusRef, focusBlock, inputs, commitBlocks, patch } = useContext(EditorContext);
 
   const [preview, setPreview] = useState(false)
   const [emojiOpen, setEmojiOpen] = useState(false)
@@ -66,12 +64,6 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
   useEffect(() => {
     activeIdRef.current = activeId
   }, [activeId])
-
-  const registerRef = useCallback((id: string, element: EditableField | null) => {
-    if (element) inputs.current.set(id, element)
-    else inputs.current.delete(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   useEffect(() => {
     const request = pendingFocusRef.current
@@ -97,62 +89,9 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
   
   // ---------------------------------------------------------------- 블록 편집
   /**
-   * 블록 행에서 발생한 액션을 처리한다. (위로 이동, 아래로 이동, 복제, 삭제)
+   * 커서가 마지막 블록에 있으면 새 블록을 추가하고, 아니면 마지막 블록으로 포커스한다.
+   * @returns 새 블록이 추가되었으면 true, 아니면 false
    */
-  const handleAction = useCallback(
-    (id: string, action: BlockAction) => {
-      const index = post.blocks.findIndex((block) => block.id === id)
-      if (index < 0) return
-      const blocks = post.blocks.slice()
-
-      if (action === 'moveUp' && index > 0) {
-        [blocks[index - 1], blocks[index]] = [blocks[index], blocks[index - 1]]
-      } else if (action === 'moveDown' && index < blocks.length - 1) {
-        [blocks[index + 1], blocks[index]] = [blocks[index], blocks[index + 1]]
-      } else if (action === 'duplicate') {
-        blocks.splice(index + 1, 0, { ...blocks[index], id: newBlock().id })
-      } else if (action === 'delete') {
-        blocks.splice(index, 1)
-        const focusTarget = blocks[index - 1] ?? blocks[index]
-        if (focusTarget) focusBlock(focusTarget.id, focusTarget.text.length)
-      } else {
-        return
-      }
-      commitBlocks(blocks)
-    },
-    [commitBlocks, focusBlock, post.blocks],
-  )
-
-  const addBlockBelow = useCallback(
-    (id: string) => {
-      const index = post.blocks.findIndex((block) => block.id === id)
-      if (index < 0) return
-      const blocks = post.blocks.slice()
-      const next = newBlock('text', '', blocks[index].indent)
-      blocks.splice(index + 1, 0, next)
-      focusBlock(next.id, 0)
-      commitBlocks(blocks)
-    },
-    [commitBlocks, focusBlock, post.blocks],
-  )
-
-  const handleTableChange = useCallback(
-    (id: string, table: TableData) => {
-      commitBlocks(post.blocks.map((block) => (block.id === id ? { ...block, table } : block)))
-    },
-    [commitBlocks, post.blocks],
-  )
-
-  const toggleCheck = useCallback(
-    (id: string) => {
-      const blocks = post.blocks.map((block) =>
-        block.id === id ? { ...block, checked: !block.checked } : block,
-      )
-      commitBlocks(blocks)
-    },
-    [commitBlocks, post.blocks],
-  )
-
   const focusLastBlock = useCallback(() => {
     const blocks = withTrailingBlock(post.blocks)
     const last = blocks[blocks.length - 1]
@@ -304,29 +243,6 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
                     key={block.id}
                     block={block}
                     listNumber={block.type === BlockType.NUMBERED ? numberedIndex(post.blocks, index) : undefined}
-                    isActive={block.id === activeId}
-                    registerRef={registerRef}
-                    onTextChange={handleTextChange}
-                    onKeyDown={handleKeyDown}
-                    onPaste={handlePaste}
-                    onFocus={setActiveId}
-                    onToggleCheck={toggleCheck}
-                    onAddBelow={addBlockBelow}
-                    onAction={handleAction}
-                    onTableChange={handleTableChange}
-
-                    isDragging={dragIdx === index}
-                    // overIdx 는 "이 블록 앞에 넣는다"는 뜻. 제자리로 돌아가는 위치에는 선을 그리지 않는다.
-                    dropBefore={
-                      dragIdx !== null && overIdx === index && index !== dragIdx && index !== dragIdx + 1
-                    }
-                    dropAfter={
-                      dragIdx !== null &&
-                      overIdx === post.blocks.length &&
-                      index === post.blocks.length - 1 &&
-                      dragIdx !== index
-                    }
-                    onReorderStart={(e) => startReorder(e, index)}
                   />
                 ))}
               </div>
