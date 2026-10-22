@@ -20,9 +20,15 @@ export const usePostStore = create<PostStore>((set) => ({
     updatePost: (next: Post) => set((state) => ({
         posts: state.posts.map((post) => (post.id === next.id ? next : post))
     })),
-    deletePost: (id: string) => set((state) => ({
-        posts: state.posts.filter((post) => post.id !== id)
-    })),
+    // 하위 페이지는 지우지 않고, 지운 글의 상위 페이지 밑으로 한 단계 올린다.
+    deletePost: (id: string) => set((state) => {
+        const parentId = state.posts.find((post) => post.id === id)?.parentId
+        return {
+            posts: state.posts
+                .filter((post) => post.id !== id)
+                .map((post) => (post.parentId === id ? { ...post, parentId } : post)),
+        }
+    }),
     reset: () => set({ posts: [] })
 }));
 

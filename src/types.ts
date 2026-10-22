@@ -60,6 +60,8 @@ export type Block = {
   indent: number
   /** table 블록의 표 데이터 */
   table?: TableData
+  /** code 블록의 언어(Prism 언어 이름). 없으면 일반 텍스트 */
+  lang?: string
 }
 
 export type PostStatus = 'draft' | 'published'
@@ -73,6 +75,10 @@ export type Post = {
   status: PostStatus
   createdAt: number
   updatedAt: number
+  /** 상위 페이지 id. 없으면 최상위 페이지 (사이드바 트리) */
+  parentId?: string
+  /** 같은 상위 페이지 안에서의 순서. 사이드바에서 끌어 옮기면 정해지고, 없으면 만든 순서를 따른다. */
+  order?: number
 }
 
 /** 자동 저장 표시 상태 */

@@ -191,11 +191,106 @@
     margin: 6px 0;
   }
 
-  .block__input {
+  /* 입력칸과 색칠한 pre 는 글자 위치가 정확히 겹쳐야 하므로 글꼴·여백·줄바꿈을 똑같이 맞춘다. */
+  .block__input,
+  .code-editor__highlight {
+    margin: 0;
+    border: 0;
+    padding: 3px 2px;
     font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
     font-size: 13.5px;
+    font-weight: 400;
+    letter-spacing: 0;
     line-height: 1.55;
-    white-space: pre;
+    tab-size: 4;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+.block--code:hover .code-editor__copy,
+.block--code[data-active='true'] .code-editor__copy {
+  opacity: 1;
+}
+
+.code-editor {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  /* 포맷 실패 문구. 언어 선택과 복사 버튼 사이를 채우고, 길면 말줄임한다. */
+  &__error {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--danger);
+    font-size: 12px;
+  }
+
+  /* 복사 버튼은 블록에 마우스를 올리거나 편집 중일 때만 보인다. */
+  &__copy {
+    opacity: 0;
+    transition: opacity 0.12s;
+
+    &:focus-visible,
+    &.code-copy--done {
+      opacity: 1;
+    }
+
+    @media (hover: none) {
+      opacity: 1;
+    }
+  }
+
+  &__lang {
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 0 2px;
+    color: var(--text-faint);
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--text-muted);
+    }
+  }
+
+  &__area {
+    position: relative;
+    display: flex;
+
+    .block__input {
+      position: relative;
+      color: transparent;
+      caret-color: var(--text);
+
+      &::selection {
+        color: transparent;
+        background: color-mix(in srgb, var(--accent) 28%, transparent);
+      }
+    }
+  }
+
+  &__highlight {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background: none;
+    color: var(--text);
   }
 }
 

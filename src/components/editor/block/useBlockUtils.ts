@@ -155,10 +155,19 @@ export function useBlockUtils() {
     [commitBlocks, post],
   )
 
+  /** 코드 블록의 언어를 바꾼다. 빈 값이면 일반 텍스트. */
+  const setLang = useCallback(
+    (id: string, lang: string) => {
+      if (!post) return
+      commitBlocks(post.blocks.map((block) => (block.id === id ? { ...block, lang: lang || undefined } : block)))
+    },
+    [commitBlocks, post],
+  )
+
   return {
     applySlashItem,
     setIndent,
     moveBlock, duplicateBlock, deleteBlock, addBlockBelow,
-    toggleCheck, setTable,
+    toggleCheck, setTable, setLang,
   }
 }

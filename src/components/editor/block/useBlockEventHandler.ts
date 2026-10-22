@@ -274,17 +274,29 @@ export function useBlockEventHandler() {
         }
         reader.readAsDataURL(file)
       } else if (plainText) {
-        const pastedBlocks = markdownToBlocks(markdown || plainText)
-        if (!pastedBlocks.some((block) => block.type === 'table')) return
         if (!post) return
+        const index = post.blocks.findIndex((block) => block.id === id)
+        if (index < 0) return
+        const current = post.blocks[index]
+
+        // 코드 블록에는 마크다운이어도 글자 그대로 붙여 넣는다.
+        if (current.type === 'code') return
+
+        // 한 줄짜리 글은 지금 칸에 글자 그대로 넣는다. 여러 줄이거나 표가 있으면 블록으로 나눠 넣는다.
+        const source = markdown || plainText
+        const pastedBlocks = markdownToBlocks(source)
+        const isMultiLine = source.trim().includes('\n')
+        if (!isMultiLine && !pastedBlocks.some((block) => block.type === 'table')) return
 
         event.preventDefault()
 
-        const index = post.blocks.findIndex((block) => block.id === id)
-        if (index < 0) return
-
+        // 빈 블록에 붙여 넣으면 그 자리를 바꾸고, 내용이 있으면 바로 아래에 넣는다.
+        const replaceCurrent = !current.text && current.type !== 'table' && current.type !== 'divider'
         const blocks = post.blocks.slice()
-        blocks.splice(index, 1, ...pastedBlocks)
+        blocks.splice(replaceCurrent ? index : index + 1, replaceCurrent ? 1 : 0, ...pastedBlocks)
+
+        const last = pastedBlocks[pastedBlocks.length - 1]
+        focusBlock(last.id, last.text.length)
         commitBlocks(blocks)
       }
       

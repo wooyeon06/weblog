@@ -66,6 +66,37 @@ $colors: gray, brown, orange, yellow, green, blue, purple, pink, red;
   text-underline-offset: 2px;
 }
 
+/*
+ * 앱 안 페이지 링크(#/p/...). 노션처럼 아이콘은 그대로 두고 굵은 제목에만 옅은 밑줄을 긋는다.
+ * 이모지로 시작하면 아이콘(.rt-link__icon)과 제목(.rt-link__title)으로 나눠 그린다. (editableField·RichText)
+ */
+.rt-link--page {
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 3px;
+  transition: background 0.12s;
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+/* 아이콘 없이 고른 글자에 건 페이지 링크는 전체에 밑줄 */
+.rt-link--page:not(:has(.rt-link__icon)),
+.rt-link__title {
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.rt-link__icon {
+  /* 아이콘 뒤 공백까지 이 안에 있으므로 밑줄 없이 간격만 조금 더 둔다. */
+  margin-right: 1px;
+}
+
+/* 편집 중에도 링크는 클릭하면 열리므로 손가락 커서를 보여 준다. */
+.rich-input .rt-link {
+  cursor: pointer;
+}
+
 /* ------------------------------------------------------------ 편집 입력칸 */
 
 .rich-input {

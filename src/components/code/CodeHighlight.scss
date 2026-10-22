@@ -1,0 +1,103 @@
+/* 코드 블록 문법 강조 색. 토큰 클래스(tok-*)는 CodeHighlight 가 Prism 토큰 종류로 붙인다. (GitHub 색 기준) */
+.code-hl {
+  --code-comment: #6a737d;
+  --code-keyword: #d73a49;
+  --code-string: #032f62;
+  --code-number: #005cc5;
+  --code-function: #6f42c1;
+  --code-tag: #22863a;
+  --code-variable: #e36209;
+  --code-punctuation: #57606a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .code-hl {
+    --code-comment: #8b949e;
+    --code-keyword: #ff7b72;
+    --code-string: #a5d6ff;
+    --code-number: #79c0ff;
+    --code-function: #d2a8ff;
+    --code-tag: #7ee787;
+    --code-variable: #ffa657;
+    --code-punctuation: #8b949e;
+  }
+}
+
+/*
+ * prism-react-renderer 는 중첩 토큰을 한 span 의 클래스로 합친다.
+ * 예) JSX 속성 안의 문자열 → "tok-tag tok-script tok-language-javascript tok-template-string tok-string"
+ * 선택자 우선순위가 모두 같으므로 "나중 규칙이 이긴다". 바깥 토큰(tag)을 맨 앞에, 구두점을 맨 뒤에 둔다.
+ */
+.code-hl {
+  /* 1. 바깥 토큰: html·jsx 태그 전체 */
+  .tok-tag,
+  .tok-selector,
+  .tok-inserted {
+    color: var(--code-tag);
+  }
+
+  /* 2. 태그 안에 들어간 JS 코드({...})는 태그 색을 받지 않고 기본 글자색으로 시작한다. */
+  .tok-script {
+    color: inherit;
+  }
+
+  /* 3. 안쪽 토큰들 */
+  .tok-comment,
+  .tok-prolog,
+  .tok-doctype,
+  .tok-cdata {
+    color: var(--code-comment);
+    font-style: italic;
+  }
+
+  .tok-keyword,
+  .tok-atrule,
+  .tok-important,
+  .tok-rule {
+    color: var(--code-keyword);
+  }
+
+  .tok-string,
+  .tok-char,
+  .tok-attr-value,
+  .tok-regex,
+  .tok-url {
+    color: var(--code-string);
+  }
+
+  .tok-number,
+  .tok-boolean,
+  .tok-constant,
+  .tok-symbol,
+  .tok-builtin,
+  .tok-property {
+    color: var(--code-number);
+  }
+
+  .tok-function,
+  .tok-class-name,
+  .tok-maybe-class-name,
+  .tok-attr-name {
+    color: var(--code-function);
+  }
+
+  .tok-variable,
+  .tok-parameter,
+  .tok-deleted {
+    color: var(--code-variable);
+  }
+
+  /* 4. 구두점은 문자열·속성값 안에 있어도(따옴표, =, ${ }) 구두점 색 */
+  .tok-punctuation,
+  .tok-operator {
+    color: var(--code-punctuation);
+  }
+
+  .tok-bold {
+    font-weight: 600;
+  }
+
+  .tok-italic {
+    font-style: italic;
+  }
+}

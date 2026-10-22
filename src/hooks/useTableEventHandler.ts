@@ -243,15 +243,25 @@ export function useTableEventHandler() {
       const next = findCell(row + 1, column)
       next?.focus()
     }
-    else if(event.key === Key.ArrowLeft && column > 0) {
-      event.preventDefault()
-      const next = findCell(row, column - 1)
-      next?.focus()
-    }
-    else if(event.key === Key.ArrowRight && column < lastColumn) {
-      event.preventDefault()
-      const next = findCell(row, column + 1)
-      next?.focus()
+    else if (event.key === Key.ArrowLeft || event.key === Key.ArrowRight) {
+      // 커서가 셀 맨 앞(←)·맨 끝(→)에 있고 선택 영역이 없을 때만 옆 셀로 넘어간다.
+      const field = fieldOf(target)
+      if (!field || field.selectionStart !== field.selectionEnd) return
+
+      if (event.key === Key.ArrowLeft && column > 0 && field.selectionStart === 0) {
+        event.preventDefault()
+        // 왼쪽 셀은 내용 끝에서 이어 간다.
+        const next = findCell(row, column - 1)
+        next?.focus()
+        next?.setSelectionRange(next.value.length, next.value.length)
+      }
+      else if (event.key === Key.ArrowRight && column < lastColumn && field.selectionEnd === field.value.length) {
+        event.preventDefault()
+        // 오른쪽 셀은 내용 처음에서 시작한다.
+        const next = findCell(row, column + 1)
+        next?.focus()
+        next?.setSelectionRange(0, 0)
+      }
     }
 
   }, [rows, columns, table, findCell, apply])

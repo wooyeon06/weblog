@@ -1,0 +1,358 @@
+/* 에디터 화면 = 왼쪽 사이드바 + 오른쪽 에디터 */
+.editor-layout {
+  display: flex;
+  height: 100vh;
+
+  > .editor {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/*
+ * 열고 닫기: 바깥(.sidebar)은 폭만 0 ↔ 248px 로 움직이고, 안쪽(.sidebar__inner)은 폭을 고정해 둔다.
+ * (안쪽까지 줄어들면 애니메이션 도중 제목이 줄바꿈되며 흔들린다)
+ */
+.sidebar {
+  --sidebar-width: 248px;
+  --sidebar-duration: 0.22s;
+
+  flex: none;
+  width: var(--sidebar-width);
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-subtle);
+  border-right: 1px solid var(--border);
+  font-size: 14px;
+  transition:
+    width var(--sidebar-duration) ease,
+    border-color var(--sidebar-duration) ease;
+
+  &--closed {
+    width: 0;
+    border-right-color: transparent;
+  }
+}
+
+.sidebar__inner {
+  width: var(--sidebar-width);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 10px 8px 24px;
+  transition: opacity var(--sidebar-duration) ease;
+
+  .sidebar--closed & {
+    opacity: 0;
+  }
+}
+
+.sidebar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.sidebar__home,
+.sidebar__close,
+.sidebar__new {
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+
+.sidebar__home {
+  padding: 4px 8px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sidebar__close {
+  width: 26px;
+  height: 26px;
+  font-size: 16px;
+}
+
+.sidebar__new {
+  padding: 5px 8px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.sidebar__tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &--root {
+    margin-top: 4px;
+  }
+}
+
+.sidebar__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 30px;
+  padding-right: 4px;
+  border-radius: 6px;
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+
+  &--active {
+    background: var(--bg-hover);
+
+    .sidebar__title {
+      color: var(--text);
+      font-weight: 600;
+    }
+  }
+}
+
+.sidebar__toggle {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-faint);
+  font-size: 11px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  /* 하위 페이지가 없으면 자리만 차지해 제목 줄을 맞춘다. */
+  &--empty {
+    visibility: hidden;
+  }
+}
+
+.sidebar__link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 4px 2px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar__emoji {
+  flex: none;
+  width: 18px;
+  text-align: center;
+}
+
+.sidebar__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+
+  &--empty {
+    color: var(--text-faint);
+  }
+}
+
+/* + · 삭제 버튼은 줄에 마우스를 올렸을 때만 보인다. */
+.sidebar__actions {
+  flex: none;
+  display: none;
+  gap: 2px;
+
+  button {
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+  }
+}
+
+.sidebar__row:hover .sidebar__actions,
+.sidebar__row:focus-within .sidebar__actions {
+  display: flex;
+}
+
+/* ------------------------------------------------------------ 드래그 */
+
+/* 드래그 중에는 글자가 선택되지 않고, 줄 hover 버튼도 숨긴다. */
+body.is-page-dragging {
+  user-select: none;
+  cursor: grabbing;
+
+  .sidebar__row:hover .sidebar__actions {
+    display: none;
+  }
+}
+
+/* 끌고 있는 페이지의 원래 자리 */
+.sidebar__row--dragging {
+  opacity: 0.35;
+}
+
+/* 앞·뒤에 넣을 때는 그 자리에 선을, 하위로 넣을 때는 줄 전체를 강조한다. */
+.sidebar__row--drop-before::before,
+.sidebar__row--drop-after::after,
+.sidebar__tree--drop-end::after {
+  content: '';
+  position: absolute;
+  left: var(--drop-indent, 6px);
+  right: 4px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  pointer-events: none;
+}
+
+.sidebar__row--drop-before::before {
+  top: -1px;
+}
+
+.sidebar__row--drop-after::after {
+  bottom: -1px;
+}
+
+.sidebar__row--drop-inside {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* 최상위 맨 끝: 트리 바로 아래에 선 */
+.sidebar__tree--drop-end {
+  position: relative;
+  padding-bottom: 6px;
+
+  &::after {
+    bottom: 0;
+  }
+}
+
+/* 커서를 따라다니는 고스트. 위치는 usePageDrag 가 transform 으로 직접 바꾼다. */
+.page-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 95;
+  pointer-events: none;
+  will-change: transform;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 12px 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  font-size: 14px;
+  opacity: 0.95;
+  rotate: -1.5deg;
+  animation: page-ghost-in 0.12s ease-out;
+}
+
+.page-ghost__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes page-ghost-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+/* --------------------------------------------------------- 좁은 화면 */
+
+.sidebar-backdrop {
+  display: none;
+}
+
+/*
+ * 좁은 화면: 사이드바가 본문 위에 겹쳐 뜨고 왼쪽에서 밀려 나온다. 바깥을 누르면 닫힌다.
+ * (Sidebar.tsx 의 OVERLAY_QUERY 와 같은 값)
+ */
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 90;
+    box-shadow: var(--shadow-md);
+    transition:
+      transform var(--sidebar-duration) ease,
+      box-shadow var(--sidebar-duration) ease;
+
+    &--closed {
+      width: var(--sidebar-width);
+      transform: translateX(-100%);
+      box-shadow: none;
+    }
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 89;
+    background: rgba(0, 0, 0, 0.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+
+    &--open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  /* 터치 기기에는 hover 가 없으므로 버튼을 항상 보여 준다. */
+  .sidebar__actions {
+    display: flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar__inner,
+  .sidebar-backdrop {
+    transition: none;
+  }
+
+  .page-ghost {
+    animation: none;
+  }
+}

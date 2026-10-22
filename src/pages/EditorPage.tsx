@@ -9,6 +9,7 @@ import { usePostStore } from '../storage/usePostStore'
 import { newBlock } from '../lib/blocks'
 import usePostHandler from '../hooks/usePostHandler'
 import { BlockDragProvider } from '../components/editor/block/BlockDragProvider'
+import { Sidebar } from '../components/sidebar/Sidebar'
 import { filterSlashItems, type SlashItem } from '../lib/slashItems'
 
 type EditorPageProps = {
@@ -119,11 +120,35 @@ const EditorProvider = ({ children }: { children: React.ReactNode }) => {
   )
 }
 
+/** 사이드바를 열어 둘지 기억하는 localStorage 키 */
+const SIDEBAR_OPEN_KEY = 'welog:sidebar-open'
+
+/** 넓은 화면은 지난번 상태(기본 열림), 좁은 화면은 본문을 가리지 않게 닫힌 채로 시작한다. */
+function initialSidebarOpen(): boolean {
+  if (window.matchMedia('(max-width: 900px)').matches) return false
+  try {
+    return localStorage.getItem(SIDEBAR_OPEN_KEY) !== 'false'
+  } catch {
+    return true
+  }
+}
+
 /** `#/p/:id` 에디터 화면. */
 export function EditorPage({ post, saveState, ref }: EditorPageProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(initialSidebarOpen)
+
   useEffect(() => {
     if (!post) navigate({ name: 'list' }, { replace: true })
   }, [post])
+
+  const changeSidebarOpen = (open: boolean) => {
+    setSidebarOpen(open)
+    try {
+      localStorage.setItem(SIDEBAR_OPEN_KEY, String(open))
+    } catch {
+      // 저장하지 못해도 이번 화면에서는 그대로 동작한다.
+    }
+  }
 
   if (!post) return null
 
@@ -131,15 +156,31 @@ export function EditorPage({ post, saveState, ref }: EditorPageProps) {
     saveState === 'saving' ? '저장 중…' : saveState === 'saved' ? '세션에 저장됨' : ''
 
   return (
-    <EditorProvider>
-      <BlockDragProvider>
-        <Editor
-          ref={ref}
-          post={post}
-          onBack={back}
-          savedLabel={savedLabel}
-        />
-      </BlockDragProvider>
-    </EditorProvider>
+    <div className="editor-layout">
+      <Sidebar activeId={post.id} open={sidebarOpen} onClose={() => changeSidebarOpen(false)} />
+      <EditorProvider>
+        <BlockDragProvider>
+          <Editor
+            ref={ref}
+            post={post}
+            onBack={back}
+            savedLabel={savedLabel}
+            barStart={
+              !sidebarOpen && (
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  title="사이드바 열기"
+                  aria-label="사이드바 열기"
+                  onClick={() => changeSidebarOpen(true)}
+                >
+                  ☰
+                </button>
+              )
+            }
+          />
+        </BlockDragProvider>
+      </EditorProvider>
+    </div>
   )
 }

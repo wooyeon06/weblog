@@ -12,6 +12,8 @@ import {
   type InlineEdit,
   type Mark,
 } from '../../../lib/inlineMarkdown'
+import { looksLikeUrl, pageHref, searchPages } from '../../../lib/pageSearch'
+import { useRoute } from '../../../lib/router'
 import {
   TEXT_COLORS,
   colorClass,
@@ -20,6 +22,12 @@ import {
   type ColorKind,
   type RecentColor,
 } from '../../../lib/textColors'
+import { usePostStore } from '../../../storage/usePostStore'
+import type { Post } from '../../../types'
+import { PagePickList } from '../PagePickList'
+
+/** 링크 입력칸 아래에 보여 줄 페이지 수 */
+const PAGE_RESULTS = 6
 
 type Target = {
   field: RichField
@@ -77,7 +85,19 @@ export function SelectionToolbar({ containerRef }: { containerRef: RefObject<HTM
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
   const [panel, setPanel] = useState<Panel>('none')
   const [linkUrl, setLinkUrl] = useState('')
+  /** 링크 입력칸 아래 페이지 목록에서 강조된 항목. -1 이면 Enter 가 입력한 주소로 연결한다. */
+  const [pageIndex, setPageIndex] = useState(-1)
   const [recent, setRecent] = useState<RecentColor[]>(loadRecentColors)
+
+  const posts = usePostStore((state) => state.posts)
+  const route = useRoute()
+  /** 주소가 아닌 글자를 치면 제목으로 페이지를 찾는다. (지금 페이지는 뺀다) */
+  const pageResults = looksLikeUrl(linkUrl)
+    ? []
+    : searchPages(posts, linkUrl, {
+        excludeId: route.name === 'editor' ? route.id : undefined,
+        limit: PAGE_RESULTS,
+      })
 
   const panelRef = useRef(panel)
   useEffect(() => {
@@ -169,6 +189,7 @@ export function SelectionToolbar({ containerRef }: { containerRef: RefObject<HTM
 
   const openLink = useCallback(() => {
     setLinkUrl(target ? wrapValue(target.field.value, target.start, target.end, 'href') ?? '' : '')
+    setPageIndex(-1)
     setPanel('link')
     requestAnimationFrame(() => linkInputRef.current?.focus())
   }, [target])
@@ -177,6 +198,12 @@ export function SelectionToolbar({ containerRef }: { containerRef: RefObject<HTM
     const url = linkUrl
     setPanel('none')
     run((md, start, end) => setWrap(md, start, end, 'href', url))
+  }
+
+  /** 고른 페이지로 가는 앱 안 링크를 건다. */
+  const linkPage = (post: Post) => {
+    setPanel('none')
+    run((md, start, end) => setWrap(md, start, end, 'href', pageHref(post.id)))
   }
 
   const cancelLink = () => {
@@ -260,26 +287,46 @@ export function SelectionToolbar({ containerRef }: { containerRef: RefObject<HTM
           className="selection-toolbar__link"
           onSubmit={(event) => {
             event.preventDefault()
-            submitLink()
+            const page = pageResults[pageIndex]
+            if (page) linkPage(page)
+            else submitLink()
           }}
         >
           <input
             ref={linkInputRef}
             className="selection-toolbar__link-input"
             type="text"
-            placeholder="링크 붙여넣기…"
+            placeholder="링크 붙여넣기 또는 페이지 검색…"
             value={linkUrl}
-            onChange={(event) => setLinkUrl(event.target.value)}
+            onChange={(event) => {
+              setLinkUrl(event.target.value)
+              // 검색어를 치면 첫 페이지를 강조한다. 비우면 Enter 가 링크 해제가 되도록 강조를 없앤다.
+              setPageIndex(event.target.value.trim() ? 0 : -1)
+            }}
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
                 event.preventDefault()
                 cancelLink()
+              } else if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && pageResults.length > 0) {
+                event.preventDefault()
+                const step = event.key === 'ArrowDown' ? 1 : -1
+                setPageIndex((index) => (index + step + pageResults.length) % pageResults.length)
               }
             }}
           />
           <button type="submit" className="selection-toolbar__link-submit">
             {linkUrl.trim() || !hasLink ? '연결' : '해제'}
           </button>
+          {!looksLikeUrl(linkUrl) && (
+            <div className="selection-toolbar__pages">
+              <PagePickList
+                pages={pageResults}
+                activeIndex={pageIndex}
+                onActiveIndexChange={setPageIndex}
+                onPick={linkPage}
+              />
+            </div>
+          )}
         </form>
       ) : (
         <>

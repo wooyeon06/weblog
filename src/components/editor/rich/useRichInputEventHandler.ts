@@ -2,7 +2,8 @@ import { useContext, type ClipboardEvent, type KeyboardEvent, type MouseEvent } 
 import { insertInline } from "../../../lib/inlineMarkdown";
 import { RichInputContext } from "./RichInput";
 import useRichInputHandler from "./useRichInputUtils";
-import { isSafeHref } from "../../../lib/editableField";
+import { isInternalHref, isSafeHref } from "../../../lib/editableField";
+import { navigate, parseHash } from "../../../lib/router";
 import { Key } from "../../../lib/keys";
 
 export default function useRichInputEventHandler() {
@@ -59,14 +60,19 @@ export default function useRichInputEventHandler() {
         if (text) insertText(text)
     }
 
+    /**
+     * 링크를 누르면 연다. (노션과 같이 그냥 클릭으로)
+     * 드래그로 글자를 선택한 경우는 링크 글자를 고치려는 것이므로 열지 않는다.
+     */
     const handleClick = (event: MouseEvent<HTMLDivElement>) => {
-        if (!(event.ctrlKey || event.metaKey)) return
         const anchor = (event.target as HTMLElement).closest('a')
         const href = anchor?.dataset.href
-        if (href && isSafeHref(href)) {
-            event.preventDefault()
-            window.open(href, '_blank', 'noopener,noreferrer')
-        }
+        if (!href || !isSafeHref(href)) return
+        if (!window.getSelection()?.isCollapsed) return
+        event.preventDefault()
+        // 앱 안 페이지 링크(#/p/...)는 지금 탭에서 이동한다.
+        if (isInternalHref(href)) navigate(parseHash(href))
+        else window.open(href, '_blank', 'noopener,noreferrer')
     }
 
 

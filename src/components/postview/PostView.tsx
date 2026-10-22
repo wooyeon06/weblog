@@ -5,6 +5,8 @@ import type { Block, TableData } from '../../types'
 import { numberedIndex } from '../../lib/blocks'
 import { isCoveredCell, normalizeTable, spanOf } from '../../lib/table'
 import { RichText } from '../editor/rich/RichText'
+import { CodeCopyButton } from '../code/CodeCopyButton'
+import { CodeHighlight } from '../code/CodeHighlight'
 
 /** 셀 안의 줄바꿈을 <br> 로 렌더링한다. */
 function CellText({ text }: { text: string }) {
@@ -78,19 +80,19 @@ export function PostView({ blocks }: { blocks: Block[] }) {
         switch (block.type) {
           case 'h1':
             return (
-              <h1 key={block.id} style={style}>
+              <h1 key={block.id} style={style} data-block-id={block.id}>
                 <RichText text={block.text} />
               </h1>
             )
           case 'h2':
             return (
-              <h2 key={block.id} style={style}>
+              <h2 key={block.id} style={style} data-block-id={block.id}>
                 <RichText text={block.text} />
               </h2>
             )
           case 'h3':
             return (
-              <h3 key={block.id} style={style}>
+              <h3 key={block.id} style={style} data-block-id={block.id}>
                 <RichText text={block.text} />
               </h3>
             )
@@ -102,9 +104,14 @@ export function PostView({ blocks }: { blocks: Block[] }) {
             )
           case 'code':
             return (
-              <pre key={block.id} style={style}>
-                <code>{block.text}</code>
-              </pre>
+              <div key={block.id} className="post-view__code" style={style}>
+                <pre className="code-hl">
+                  <code>
+                    <CodeHighlight code={block.text} lang={block.lang} />
+                  </code>
+                </pre>
+                <CodeCopyButton code={block.text} className="post-view__code-copy" />
+              </div>
             )
           case 'divider':
             return <hr key={block.id} />

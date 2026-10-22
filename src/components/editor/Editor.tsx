@@ -1,6 +1,6 @@
 import './Editor.scss';
 
-import type { Ref } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { useCallback, useContext, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import {
   markdownToBlocks,
@@ -12,7 +12,9 @@ import { usePostStore } from '../../storage/usePostStore'
 import { BlockType, type Block, type Post } from '../../types'
 import { BlockGhost, BlockRow } from './block/BlockRow'
 import { PostView } from '../postview/PostView'
+import { PageMention } from './PageMention'
 import { SlashMenu } from './SlashMenu'
+import { TableOfContents } from './tableofcontents/TableOfContents'
 import { SelectionToolbar } from './block/SelectionToolbar'
 import { EditorContext } from '../../pages/EditorPage'
 import { useBlockUtils } from './block/useBlockUtils'
@@ -32,6 +34,8 @@ type EditorProps = {
   post: Post
   onBack: () => void
   savedLabel: string
+  /** 상단 바 맨 앞에 둘 요소 (사이드바가 닫혔을 때 여는 버튼) */
+  barStart?: ReactNode
   ref?: Ref<EditorHandle>
 }
 
@@ -44,7 +48,7 @@ function withTrailingBlock(blocks: Block[]): Block[] {
   return blocks
 }
 
-export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
+export function Editor({ post, onBack, savedLabel, barStart, ref }: EditorProps) {
   const { deletePost } = usePostStore();
   const { listRef, ghost, ghostRef } = useBlockDrag();
 
@@ -60,6 +64,8 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
 
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const activeIdRef = useRef<string | null>(null)
+  /** 본문 스크롤 영역. 목차가 스크롤 위치를 읽고 제목으로 이동할 때 쓴다. */
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     activeIdRef.current = activeId
@@ -141,6 +147,7 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
   return (
     <div className="editor">
       <header className="editor__bar">
+        {barStart}
         <button type="button" className="btn btn--ghost" onClick={onBack}>
           ← 목록
         </button>
@@ -173,7 +180,7 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
         </div>
       </header>
 
-      <div className="editor__scroll">
+      <div ref={scrollRef} className="editor__scroll">
         <div className="editor__page">
           <div className="editor__emoji-row">
             <button
@@ -258,9 +265,12 @@ export function Editor({ post, onBack, savedLabel, ref }: EditorProps) {
         </div>
       </div>
 
+      <TableOfContents blocks={post.blocks} scrollRef={scrollRef} />
+
       {ghost && <BlockGhost ref={ghostRef} block={ghost.block} width={ghost.width} />}
 
       {!preview && <SelectionToolbar containerRef={listRef} />}
+      {!preview && <PageMention containerRef={listRef} />}
 
       {slash && slashItems.length > 0 && (
         <SlashMenu

@@ -4,12 +4,16 @@ import type { Ref } from 'react'
 import { useCallback, useContext, useLayoutEffect, useMemo, useRef } from 'react'
 import { useBlockEventHandler } from './useBlockEventHandler'
 import { useBlockUtils } from './useBlockUtils'
+import { useCodeFormat } from './useCodeFormat'
 import { PLACEHOLDERS } from '../../../lib/blocks'
+import { CODE_LANGUAGES, normalizeLang } from '../../../lib/codeLanguages'
 import type { EditableField, RichField } from '../../../lib/editableField'
 import { SLASH_ITEMS } from '../../../lib/slashItems'
 import { normalizeTable } from '../../../lib/table'
 import { EditorContext } from '../../../pages/EditorPage'
 import { BlockType, type Block } from '../../../types'
+import { CodeCopyButton } from '../../code/CodeCopyButton'
+import { CodeHighlight } from '../../code/CodeHighlight'
 import { RichInput } from '../rich/RichInput'
 import BlockMenu from './BlockMenu'
 import { TableBlock } from './table/TableBlock'
@@ -63,17 +67,21 @@ export function BlockGhost({
 export function BlockRow({ block, listNumber, isDragging, dropBefore, dropAfter }: BlockRowProps) {
   const { activeId, setActiveId, registerRef } = useContext(EditorContext)
   
-  const { addBlockBelow, toggleCheck, setTable } = useBlockUtils();
+  const { addBlockBelow, toggleCheck, setTable, setLang } = useBlockUtils();
   const { handleTextChange, handleKeyDown, handlePaste } = useBlockEventHandler()
   const isActive = block.id === activeId
 if(isActive) console.log("%cactiveId", "color: green", `%c${activeId}`, "color: blue");
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const { formatError, handleFormatKey } = useCodeFormat(textareaRef, block.lang, (text) =>
+    handleTextChange(block.id, text, text.length),
+  )
 
   const isDivider = block.type === BlockType.DIVIDER;
+  const isCode = block.type === BlockType.CODE
   const isTable = block.type === BlockType.TABLE
   /** 코드 블록은 서식 없이 글자 그대로 다루므로 textarea 를 쓴다. 구분선은 키 입력만 받는 숨은 textarea. */
-  const isPlain = block.type === BlockType.CODE || isDivider
+  const isPlain = isCode || isDivider
 
   // 저장소에서 온 값을 믿지 않고 항상 직사각형으로 맞춰서 넘긴다.
   const table = useMemo(() => (isTable ? normalizeTable(block.table) : null), [isTable, block.table]);
@@ -110,11 +118,37 @@ if(isActive) console.log("%cactiveId", "color: green", `%c${activeId}`, "color: 
     dropAfter ? 'block--drop-after' : '',
   ].filter(Boolean).join(' ');
 
-  
+  /** 코드·구분선 블록의 입력칸 */
+  const plainInput = isPlain && (
+    <textarea
+      ref={(element) => {
+        textareaRef.current = element
+        registerRef(block.id, element)
+      }}
+      className={`block__input${isDivider ? ' block__input--hidden' : ''}`}
+      value={block.text}
+      rows={1}
+      spellCheck={false}
+      placeholder={placeholder}
+      readOnly={isDivider}
+      onChange={(event) =>
+        handleTextChange(block.id, event.target.value, event.target.selectionStart)
+      }
+      onKeyDown={(event) => {
+        // 코드 블록의 Shift+Alt+F 는 포맷으로 쓰고 에디터 키 처리로 넘기지 않는다.
+        if (isCode && handleFormatKey(event)) return
+        handleKeyDown(event, block.id)
+      }}
+      onPaste={(event) => handlePaste(event, block.id)}
+      onFocus={() => setActiveId(block.id)}
+    />
+  )
+
 
   return (
     <div
       className={blockClass}
+      data-block-id={block.id}
       data-indent={block.indent}
       data-active={isActive}
       style={{ marginLeft: block.indent * 24 }}
@@ -168,26 +202,37 @@ if(isActive) console.log("%cactiveId", "color: green", `%c${activeId}`, "color: 
             onPaste={(event) => handlePaste(event, block.id)}
             onFocus={() => setActiveId(block.id)}
           />
+        ) : isCode ? (
+          <div className="code-editor">
+            <div className="code-editor__header">
+              <select
+                className="code-editor__lang"
+                value={normalizeLang(block.lang)}
+                onChange={(event) => setLang(block.id, event.target.value)}
+                aria-label="코드 언어"
+                title="코드 언어 (Shift+Alt+F 로 포맷)"
+              >
+                {CODE_LANGUAGES.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <span className="code-editor__error" role="status">
+                {formatError}
+              </span>
+              <CodeCopyButton code={block.text} className="code-editor__copy" />
+            </div>
+            {/* 글자가 투명한 textarea 아래에 색칠한 pre 를 겹쳐서, 입력은 textarea 로 받고 색은 pre 로 보여 준다. */}
+            <div className="code-editor__area">
+              <pre className="code-editor__highlight code-hl" aria-hidden>
+                <CodeHighlight code={block.text} lang={block.lang} />
+              </pre>
+              {plainInput}
+            </div>
+          </div>
         ) : (
-          <textarea
-            ref={(element) => {
-              textareaRef.current = element
-              registerRef(block.id, element)
-            }}
-            className={`block__input${isDivider ? ' block__input--hidden' : ''}${block.type === 'todo' && block.checked ? ' block__input--done' : ''
-              }`}
-            value={block.text}
-            rows={1}
-            spellCheck={false}
-            placeholder={placeholder}
-            readOnly={isDivider}
-            onChange={(event) =>
-              handleTextChange(block.id, event.target.value, event.target.selectionStart)
-            }
-            onKeyDown={(event) => handleKeyDown(event, block.id)}
-            onPaste={(event) => handlePaste(event, block.id)}
-            onFocus={() => setActiveId(block.id)}
-          />
+          plainInput
         )}
       </div>
     </div>

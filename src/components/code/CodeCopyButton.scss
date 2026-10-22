@@ -1,0 +1,26 @@
+.code-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 2px 7px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+  }
+
+  &--done {
+    color: var(--accent);
+
+    &:hover {
+      color: var(--accent);
+    }
+  }
+}

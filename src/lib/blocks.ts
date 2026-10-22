@@ -1,4 +1,5 @@
 import type { Block, BlockType, Post } from '../types'
+import { fenceLang, normalizeLang } from './codeLanguages'
 import { uid } from './id'
 import { plainText } from './inlineMarkdown'
 import { newTable, parseMarkdownTable, tableToMarkdown, tableToPlainText } from './table'
@@ -111,7 +112,7 @@ export function blocksToMarkdown(blocks: Block[]): string {
         lines.push(`> ${block.text}`)
         break
       case 'code':
-        lines.push('```', block.text, '```')
+        lines.push('```' + fenceLang(block.lang), block.text, '```')
         break
       case 'divider':
         lines.push('---')
@@ -141,21 +142,42 @@ export function blocksToPlainText(blocks: Block[]): string {
     .trim()
 }
 
-/** AI 응답(마크다운 텍스트)을 에디터 블록으로 변환한다. */
+/** 마크다운 강제 줄바꿈: 글자 뒤에 공백 두 칸 이상 또는 \ 로 끝나는 줄 */
+const HARD_BREAK = /\S(?: {2,}|\\)$/
+/** 새 블록을 시작하는 줄 (제목·목록·인용·코드·구분선·이미지·표) */
+const BLOCK_START = /^(#{1,6}\s|[-*+]\s|\d+[.)]\s|>|```|---$|\*\*\*$|___$|!\[|\|)/
+/** 안에서 줄바꿈해 여러 줄을 담을 수 있는 블록 */
+const MULTILINE_TYPES = new Set<BlockType>(['text', 'bulleted', 'numbered', 'todo', 'quote'])
+
+/** AI 응답·붙여넣은 마크다운 텍스트를 에디터 블록으로 변환한다. */
 export function markdownToBlocks(markdown: string): Block[] {
   const lines = markdown.replace(/\r\n/g, '\n').split('\n')
   const blocks: Block[] = []
   let codeBuffer: string[] | null = null
+  /** 여는 펜스(```sql 등)에 적힌 언어 */
+  let codeLang = ''
+  const pushCode = (codeLines: string[]) => {
+    const block = newBlock('code', codeLines.join('\n'))
+    const lang = normalizeLang(codeLang)
+    if (lang) block.lang = lang
+    blocks.push(block)
+  }
+
+  /** 앞 줄이 강제 줄바꿈(끝 공백 두 칸 또는 \)으로 끝났는지 */
+  let hardBreak = false
 
   for (let cursor = 0; cursor < lines.length; cursor += 1) {
     const rawLine = lines[cursor]
+    const joinsPrevious = hardBreak
+    hardBreak = HARD_BREAK.test(rawLine)
     const fence = rawLine.trim().startsWith('```')
     if (fence) {
       if (codeBuffer) {
-        blocks.push(newBlock('code', codeBuffer.join('\n')))
+        pushCode(codeBuffer)
         codeBuffer = null
       } else {
         codeBuffer = []
+        codeLang = rawLine.trim().slice(3)
       }
       continue
     }
@@ -182,6 +204,13 @@ export function markdownToBlocks(markdown: string): Block[] {
     const line = rawLine.trim()
 
     if (!line) continue
+
+    // 강제 줄바꿈 다음 줄은 새 블록이 아니라 앞 블록 안의 다음 줄이다. (예: 목록 항목 아래 번역 문장)
+    const previous = blocks[blocks.length - 1]
+    if (joinsPrevious && previous && MULTILINE_TYPES.has(previous.type) && !BLOCK_START.test(line)) {
+      previous.text = `${previous.text.replace(/\\$/, '')}\n${line}`
+      continue
+    }
 
     if (/^(---|\*\*\*|___)$/.test(line)) {
       blocks.push(newBlock('divider'))
@@ -231,7 +260,7 @@ export function markdownToBlocks(markdown: string): Block[] {
     blocks.push(newBlock('text', line, indent))
   }
 
-  if (codeBuffer) blocks.push(newBlock('code', codeBuffer.join('\n')))
+  if (codeBuffer) pushCode(codeBuffer)
   if (blocks.length === 0) blocks.push(newBlock('text', markdown.trim()))
   return blocks
 }

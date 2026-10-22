@@ -1,0 +1,86 @@
+/* 오른쪽에 떠 있는 목차. 본문(.editor__page, 최대 900px) 옆 여백에 둔다. */
+.toc {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  z-index: 40;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.toc__toggle {
+  display: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  padding: 4px 10px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text);
+  }
+}
+
+.toc__list {
+  width: 100%;
+  /* 아래쪽 AI 버튼(.ai-fab)과 겹치지 않게 높이를 제한한다. */
+  max-height: calc(100vh - 72px - 110px);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  padding: 10px 6px;
+}
+
+.toc__item {
+  width: 100%;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  padding: 4px 10px 4px 12px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+  /* 긴 제목은 두 줄까지만 보여 준다. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+
+  &[aria-current='true'] {
+    color: var(--accent);
+  }
+}
+
+/*
+ * 본문 옆 여백((화면 - 사이드바 248px - 본문 900px) / 2)이 목차(240px + 오른쪽 24px)보다 좁으면
+ * 접어 두고 버튼으로 펼친다.
+ */
+@media (max-width: 1680px) {
+  .toc__toggle {
+    display: inline-flex;
+    gap: 4px;
+  }
+
+  .toc__list {
+    display: none;
+  }
+
+  .toc--open .toc__list {
+    display: block;
+  }
+}
