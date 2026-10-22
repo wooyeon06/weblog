@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { EditorContext } from "../pages/EditorPage";
-import type { Block } from "../types";
-import usePostHandler from "./usePostHandler";
+import { EditorContext } from "../../../pages/EditorPage";
+import type { Block } from "../../../types";
+import usePostHandler from "../../../hooks/usePostHandler";
 
 /** 이 거리(px)를 넘겨야 드래그로 인정한다. (⋮⋮ 클릭으로 메뉴를 열 수 있게) */
 const DRAG_THRESHOLD = 4

@@ -15,9 +15,9 @@ import { PostView } from '../postview/PostView'
 import { SlashMenu } from './SlashMenu'
 import { SelectionToolbar } from './block/SelectionToolbar'
 import { EditorContext } from '../../pages/EditorPage'
-import { useBlockUtils } from '../../hooks/useBlockUtils'
+import { useBlockUtils } from './block/useBlockUtils'
 import Tag from './Tag'
-import { useBlockDrag } from '../../hooks/useDragBlockRow'
+import { useBlockDrag } from './block/useDragBlockRow'
 
 const EMOJIS = ['📝', '💡', '🚀', '🌱', '📚', '🧠', '☕', '🎨', '🔧', '🐛', '✨', '🗺️']
 

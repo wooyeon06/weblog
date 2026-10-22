@@ -42,8 +42,22 @@ export const isSafeHref = (href: string) => SAFE_PROTOCOL.test(href)
 
 // ------------------------------------------------------------ DOM ↔ 조각
 
-/** 조각 목록을 DOM 으로 그린다. 태그 구성은 읽기 화면(RichText)과 같다. */
+/**
+ * 조각 목록을 DOM 으로 그린다. 태그 구성은 읽기 화면(RichText)과 같다.
+ *
+ * 마크다운을 parseInline 으로 "같은 서식끼리 묶인 조각(run)"으로 나눈 뒤, 조각마다 텍스트 노드를 만들고
+ * 서식 태그로 안쪽부터 감싼다. RichField.render() 가 이 결과를 입력칸에 넣는다.
+ *   `가나다 **굵게** \`코드\``
+ *   → runs: [{text:'가나다 '}, {text:'굵게', marks:['bold']}, {text:' '}, {text:'코드', marks:['code']}]
+ *   → "가나다 " <strong>굵게</strong> " " ◇<code>◇코드</code>◇
+ *
+ * - 감싸는 순서는 code → s → u → em → strong → 배경색 → 글자색 → 링크(가장 바깥).
+ *   readSpans 는 어떤 순서로 감싸여 있어도 읽으므로 이 순서는 화면 모양만 정한다.
+ * - ◇ 는 커서 자리(CARET_ANCHOR). 화면·마크다운 어디에도 없는 글자로, 코드 앞뒤에서 커서를 코드 밖에 둘 수 있게 한다.
+ * - innerHTML 을 쓰지 않고 노드를 직접 만들므로 본문에 HTML 이 섞여 있어도 실행되지 않는다.
+ */
 function buildNodes(runs: Run[]): DocumentFragment {
+  //태그가 아닌 임시 바구니입니다. 붙이는 순간 안에 있던 자식들만 옮겨지고 fragment 자신은 사라집니다(빈 상태로 남음). 화면에 태그로 존재하지 않으니 스타일이나 클래스를 줄 수 없습니다.
   const fragment = document.createDocumentFragment()
   const isCode = (run: Run | undefined) => !!run?.marks.includes('code')
   runs.forEach((run, index) => {
@@ -54,7 +68,9 @@ function buildNodes(runs: Run[]): DocumentFragment {
     if (isCode(run) || isCode(prev)) {
       fragment.appendChild(document.createTextNode(CARET_ANCHOR))
     }
-    let node: Node = document.createTextNode(run.text)
+    // 코드 안 맨 앞에도 커서 자리를 둔다. 없으면 "코드 첫 글자 앞(안)"이 "코드 앞(밖)"과 같은 위치로 취급돼
+    // 그 자리에 친 글자가 코드 밖으로 나간다. (뒤쪽은 코드 끝 자체가 안쪽 위치라 필요 없다)
+    let node: Node = document.createTextNode(isCode(run) ? CARET_ANCHOR + run.text : run.text)
     const wrap = (element: HTMLElement) => {
       element.appendChild(node)
       node = element
@@ -141,7 +157,14 @@ export function readSpans(root: HTMLElement): Span[] {
   return spans
 }
 
-/** DOM 위치 → 화면 글자 위치 */
+/**
+ * DOM 위치 → 화면 글자 위치.
+ * 입력칸 처음부터 그 위치까지를 범위로 잡고, 그 안의 글자 수를 센다. (보이지 않는 커서 자리 글자는 빼고)
+ * @param root 입력칸 루트 요소
+ * @param node DOM 위치의 노드
+ * @param offset 노드 안에서 몇 번째 글자 위치인지
+ * @returns 입력칸 처음부터 그 위치까지 보이는 글자 수
+ */
 function pointToPlain(root: HTMLElement, node: Node, offset: number): number {
   const range = document.createRange()
   range.setStart(root, 0)
@@ -235,18 +258,30 @@ export class RichField implements EditableField {
     return [plainToMd(this.runs, this.value, start, 'after'), plainToMd(this.runs, this.value, end, 'before')]
   }
 
-  /** 화면 글자 기준 선택 구간 */
+  /**
+   * 화면 글자 기준 선택 구간. (DOM 위치 → "입력칸 처음부터 몇 번째 글자")
+   *
+   * 브라우저는 위치를 "어느 텍스트 노드의 몇 번째"로 주는데, 서식이 있으면 노드가 쪼개져 있다.
+   *   화면: 가나다 나나나 나나나
+   *   DOM : "가나다 " <code>"나나|나"</code> " 나나나"
+   *   브라우저 값 (code 안 텍스트 노드, 2) → 이 함수의 값 6 ("가나다 " 4글자 + "나나" 2글자)
+   * 에디터는 textarea 처럼 숫자로 커서를 다루므로 이렇게 바꿔서 쓴다.
+   * 마크다운 기준(기호 포함) 위치가 필요하면 selection() 을 쓴다. 반대 방향은 setPlainSelection().
+   */
   plainSelection(): [number, number] {
     const selection = window.getSelection()
     if (selection && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0)
+      // 선택은 페이지 전체에 하나뿐이다. 시작·끝이 모두 이 입력칸 안에 있을 때만 이 입력칸의 선택으로 본다.
       if (this.root.contains(range.startContainer) && this.root.contains(range.endContainer)) {
+        // 커서만 있으면(선택 없음) 두 값이 같다.
         return [
           pointToPlain(this.root, range.startContainer, range.startOffset),
           pointToPlain(this.root, range.endContainer, range.endOffset),
         ]
       }
     }
+    // 커서가 다른 곳에 있으면 이 입력칸에서 마지막으로 기억한 선택을 돌려준다. (textarea 와 같은 동작)
     return this.saved
   }
 

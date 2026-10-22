@@ -1,9 +1,9 @@
 import { useCallback, useContext } from "react"
-import type { SlashItem } from "../lib/slashItems"
-import { MAX_INDENT, newBlock } from "../lib/blocks"
-import { newTable } from "../lib/table"
-import { EditorContext } from "../pages/EditorPage"
-import type { TableData } from "../types"
+import type { SlashItem } from "../../../lib/slashItems"
+import { MAX_INDENT, newBlock } from "../../../lib/blocks"
+import { newTable } from "../../../lib/table"
+import { EditorContext } from "../../../pages/EditorPage"
+import type { TableData } from "../../../types"
 
 /**
  * 블록 편집에 쓰는 유틸성 기능. 이벤트와 상관없이 어디서든 호출한다.

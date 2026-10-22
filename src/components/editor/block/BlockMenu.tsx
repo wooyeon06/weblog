@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { useBlockUtils } from "../../../hooks/useBlockUtils";
-import { useBlockDrag } from "../../../hooks/useDragBlockRow";
+import { useBlockUtils } from "./useBlockUtils";
+import { useBlockDrag } from "./useDragBlockRow";
 import { BlockType, type Block } from "../../../types";
 
 /** 드래그로 볼지 클릭으로 볼지 가르는 거리 (useDragItem 의 임계값과 맞춘다) */

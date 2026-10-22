@@ -1,18 +1,18 @@
 import './BlockRow.scss'
 
-import type { PointerEvent, Ref } from 'react'
-import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { Ref } from 'react'
+import { useCallback, useContext, useLayoutEffect, useMemo, useRef } from 'react'
+import { useBlockEventHandler } from './useBlockEventHandler'
+import { useBlockUtils } from './useBlockUtils'
 import { PLACEHOLDERS } from '../../../lib/blocks'
-import { normalizeTable } from '../../../lib/table'
 import type { EditableField, RichField } from '../../../lib/editableField'
-import { BlockType, type Block } from '../../../types'
 import { SLASH_ITEMS } from '../../../lib/slashItems'
-import { RichInput } from '../rich/RichInput'
-import { TableBlockWrapper } from './table/TableBlockWrapper'
+import { normalizeTable } from '../../../lib/table'
 import { EditorContext } from '../../../pages/EditorPage'
-import { useBlockUtils } from '../../../hooks/useBlockUtils'
-import { useBlockEventHandler } from '../../../hooks/useBlockEventHandler'
+import { BlockType, type Block } from '../../../types'
+import { RichInput } from '../rich/RichInput'
 import BlockMenu from './BlockMenu'
+import { TableBlockWrapper } from './table/TableBlockWrapper'
 
 /**
  * 편집 이벤트는 훅(useBlockEventHandler·useBlockUtils)과 EditorContext 에서 직접 가져오므로,

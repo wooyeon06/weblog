@@ -1,9 +1,9 @@
 import { useCallback, useContext, type ClipboardEvent, type KeyboardEvent } from "react"
-import { isListType, markdownToBlocks, matchShortcut, newBlock } from "../lib/blocks"
-import type { EditableField } from "../lib/editableField"
-import { joinInline, plainText, splitInline } from "../lib/inlineMarkdown"
-import { EditorContext } from "../pages/EditorPage"
-import type { BlockType } from "../types"
+import { isListType, markdownToBlocks, matchShortcut, newBlock } from "../../../lib/blocks"
+import type { EditableField } from "../../../lib/editableField"
+import { joinInline, plainText, splitInline } from "../../../lib/inlineMarkdown"
+import { EditorContext } from "../../../pages/EditorPage"
+import type { BlockType } from "../../../types"
 import { useBlockUtils } from "./useBlockUtils"
 
 /** 인라인 서식을 해석하는 블록인지. (코드 블록은 글자 그대로 다룬다) */
