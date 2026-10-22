@@ -3,6 +3,7 @@ import { insertInline } from "../../../lib/inlineMarkdown";
 import { RichInputContext } from "./RichInput";
 import useRichInputHandler from "./useRichInputUtils";
 import { isSafeHref } from "../../../lib/editableField";
+import { Key } from "../../../lib/keys";
 
 export default function useRichInputEventHandler() {
     const { field, onKeyDown, onPaste } = useContext(RichInputContext);
@@ -29,11 +30,11 @@ export default function useRichInputEventHandler() {
         }
 
         if (
-            (event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+            (event.key === Key.ArrowLeft || event.key === Key.ArrowRight) &&
             !mod && !event.shiftKey && !event.altKey &&
             window.getSelection()?.isCollapsed
         ) {
-            const direction = event.key === 'ArrowLeft' ? 'left' : 'right'
+            const direction = event.key === Key.ArrowLeft ? 'left' : 'right'
             if (field().skipCaretAnchor(direction) || field().exitFormatting(true, direction)) {
                 event.preventDefault()
                 return
@@ -44,7 +45,7 @@ export default function useRichInputEventHandler() {
         if (event.defaultPrevented) return
 
         // 에디터가 처리하지 않은 Enter(표 셀, Shift+Enter 등)는 줄바꿈 글자로 넣는다.
-        if (event.key === 'Enter') {
+        if (event.key === Key.Enter) {
             event.preventDefault()
             insertText('\n')
         }

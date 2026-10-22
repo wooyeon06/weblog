@@ -4,6 +4,7 @@ import { TableContext, type Axis, type CellPos, type MenuTarget } from '../compo
 import { insertRow, isCoveredCell, MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, moveColumn, moveRow, resizeColumn } from '../lib/table';
 import type { TableData } from '../types';
 import { fieldOf } from '../lib/editableField';
+import { Key } from '../lib/keys';
 
 /** 이 거리(px)를 넘겨야 드래그로 인정한다. (손잡이 클릭으로 메뉴를 열 수 있게) */
 export const DRAG_THRESHOLD = 4
@@ -201,12 +202,12 @@ export function useTableEventHandler() {
     const lastRow = rows.length - 1
     const lastColumn = columns.length - 1
 
-    if (event.key === 'Escape') {
+    if (event.key === Key.Escape) {
       target.blur()
       return
     }
 
-    if (event.key === 'Tab') {
+    if (event.key === Key.Tab) {
       event.preventDefault()
       // 병합으로 가려진 셀은 건너뛰고 다음(이전) 셀로 간다.
       const step = event.shiftKey ? -1 : 1
@@ -231,7 +232,28 @@ export function useTableEventHandler() {
       }
       if (step > 0) apply(insertRow(table, rows.length), { row: rows.length, column: 0 })
       return
+    } 
+    else if(event.key === Key.ArrowUp && row > 0) {
+      event.preventDefault()
+      const next = findCell(row - 1, column)
+      next?.focus()
     }
+    else if(event.key === Key.ArrowDown && row < lastRow) {
+      event.preventDefault()
+      const next = findCell(row + 1, column)
+      next?.focus()
+    }
+    else if(event.key === Key.ArrowLeft && column > 0) {
+      event.preventDefault()
+      const next = findCell(row, column - 1)
+      next?.focus()
+    }
+    else if(event.key === Key.ArrowRight && column < lastColumn) {
+      event.preventDefault()
+      const next = findCell(row, column + 1)
+      next?.focus()
+    }
+
   }, [rows, columns, table, findCell, apply])
 
   return {

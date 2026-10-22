@@ -1,6 +1,7 @@
 import { useCallback, useContext, type ClipboardEvent, type KeyboardEvent } from "react"
 import { isListType, markdownToBlocks, matchShortcut, newBlock } from "../../../lib/blocks"
 import type { EditableField } from "../../../lib/editableField"
+import { Key } from "../../../lib/keys"
 import { joinInline, plainText, splitInline } from "../../../lib/inlineMarkdown"
 import { EditorContext } from "../../../pages/EditorPage"
 import type { BlockType } from "../../../types"
@@ -44,34 +45,34 @@ export function useBlockEventHandler() {
 
       // 슬래시 메뉴가 열려 있으면 먼저 처리
       if (slash && slash.blockId === id && slashItems.length > 0) {
-        if (event.key === 'ArrowDown') {
+        if (event.key === Key.ArrowDown) {
           event.preventDefault()
           setSlashIndex((value) => (value + 1) % slashItems.length)
           return
         }
-        if (event.key === 'ArrowUp') {
+        if (event.key === Key.ArrowUp) {
           event.preventDefault()
           setSlashIndex((value) => (value - 1 + slashItems.length) % slashItems.length)
           return
         }
-        if (event.key === 'Enter' || event.key === 'Tab') {
+        if (event.key === Key.Enter || event.key === Key.Tab) {
           event.preventDefault()
           applySlashItem(slashItems[Math.min(slashIndex, slashItems.length - 1)])
           return
         }
-        if (event.key === 'Escape') {
+        if (event.key === Key.Escape) {
           event.preventDefault()
           closeSlash()
           return
         }
       }
 
-      if (event.key === 'Escape') { //ESC
+      if (event.key === Key.Escape) { //ESC
         target.blur()
         return
       }
 
-      if (event.key === 'Tab') { //Tab
+      if (event.key === Key.Tab) { //Tab
         // code 타입 블록은 “코드 문맥”을 유지해야 하므로, 그냥 들여쓰기 단계가 아니라 실제 코드 안에 공백 2칸을 넣어야 합니다.
         if (current.type === 'code') {
           event.preventDefault()
@@ -88,7 +89,7 @@ export function useBlockEventHandler() {
         return
       }
 
-      if (event.key === 'Enter') {
+      if (event.key === Key.Enter) {
         // 코드 블록은 Enter 로 줄바꿈, Ctrl/Cmd+Enter 로 탈출
         // 코드 블록은 일반 엔터로 분리하지 않고, 코드 안에서만 줄바꿈을 넣는 형태로 유지
         if (current.type === 'code' && !(event.metaKey || event.ctrlKey)) return
@@ -124,7 +125,7 @@ export function useBlockEventHandler() {
         commitBlocks(blocks)
         return
       }
-      if (event.key === 'Backspace' && caret === 0 && !hasSelection) {
+      if (event.key === Key.Backspace && caret === 0 && !hasSelection) {
         if (current.indent > 0) {
           event.preventDefault()
           setIndent(index, -1)
@@ -163,7 +164,7 @@ export function useBlockEventHandler() {
       }
 
       if (
-        event.key === 'Delete' &&
+        event.key === Key.Delete &&
         caret === current.text.length &&
         !hasSelection &&
         index < post.blocks.length - 1
@@ -190,7 +191,7 @@ export function useBlockEventHandler() {
         return
       }
 
-      if (event.key === 'ArrowUp' && caret === 0 && index > 0) {
+      if (event.key === Key.ArrowUp && caret === 0 && index > 0) {
         event.preventDefault()
         const previous = post.blocks[index - 1]
         focusBlock(previous.id, previous.text.length)
@@ -199,7 +200,7 @@ export function useBlockEventHandler() {
       }
 
       if (
-        event.key === 'ArrowDown' &&
+        event.key === Key.ArrowDown &&
         caret === current.text.length &&
         index < post.blocks.length - 1
       ) {
@@ -212,15 +213,15 @@ export function useBlockEventHandler() {
       if (
         event.altKey && 
         (
-          event.key === 'ArrowUp' ||
-          event.key === 'ArrowDown' 
+          event.key === Key.ArrowUp ||
+          event.key === Key.ArrowDown 
         ) &&
         current.type === 'text' &&
         current.text
       ) {
         event.preventDefault();
         // Alt + ↑ : 현재 블록 위에, Alt + ↓ : 아래에 복사본 삽입
-        const copy = duplicateBlock(id, event.key === 'ArrowUp' ? 'above' : 'below', caret);
+        const copy = duplicateBlock(id, event.key === Key.ArrowUp ? 'above' : 'below', caret);
         if (copy) setActiveId(copy.id);
         return;
       }

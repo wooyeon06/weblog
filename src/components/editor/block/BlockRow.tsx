@@ -12,7 +12,7 @@ import { EditorContext } from '../../../pages/EditorPage'
 import { BlockType, type Block } from '../../../types'
 import { RichInput } from '../rich/RichInput'
 import BlockMenu from './BlockMenu'
-import { TableBlockWrapper } from './table/TableBlockWrapper'
+import { TableBlock } from './table/TableBlock'
 
 /**
  * 편집 이벤트는 훅(useBlockEventHandler·useBlockUtils)과 EditorContext 에서 직접 가져오므로,
@@ -151,7 +151,7 @@ if(isActive) console.log("%cactiveId", "color: green", `%c${activeId}`, "color: 
             <img className="block__image" src={block.text} alt="" />
           </div>
         ) : table ? (
-          <TableBlockWrapper
+          <TableBlock
             table={table}
             onChange={(next) => setTable(block.id, next)}
             onFocus={() => setActiveId(block.id)}
