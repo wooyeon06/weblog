@@ -90,8 +90,11 @@
   left: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(8, 1fr);
   gap: 2px;
+  /* 이모지가 많으므로 창 높이를 제한하고 안에서 스크롤한다. */
+  max-height: min(300px, 50vh);
+  overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;

@@ -84,7 +84,7 @@ export type Post = {
 /** 자동 저장 표시 상태 */
 export type SaveState = 'idle' | 'saving' | 'saved'
 
-export type AiProvider = 'gemini' | 'groq' | 'openrouter'
+export type AiProvider = 'gemini' | 'groq' | 'openrouter' | 'claude'
 
 export type AiSettings = {
   provider: AiProvider

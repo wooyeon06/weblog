@@ -46,7 +46,8 @@
   }
 }
 
-$colors: gray, brown, orange, yellow, green, blue, purple, pink, red;
+// 따옴표가 없으면 Sass가 색 값(gray 등)으로 해석해 보간 시 경고가 난다.
+$colors: 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red';
 
 @each $name in $colors {
   .rt-color-#{$name} {

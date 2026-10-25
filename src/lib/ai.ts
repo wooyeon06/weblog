@@ -1,4 +1,10 @@
 import type { AiProvider, AiSettings, ChatRole } from '../types'
+import { AiError, INVALID_KEY_MESSAGE } from './aiError'
+
+export { AiError }
+
+/** 가장 저렴한 Claude 모델 */
+const CLAUDE_DEFAULT_MODEL = 'claude-haiku-5-5'
 
 export type AiTurn = { role: ChatRole; content: string }
 
@@ -33,6 +39,13 @@ export const PROVIDERS: ProviderInfo[] = [
     keyUrl: 'https://openrouter.ai/keys',
     models: ['deepseek/deepseek-chat-v3.1:free', 'meta-llama/llama-3.3-70b-instruct:free'],
   },
+  {
+    id: 'claude',
+    label: 'Anthropic Claude',
+    note: '유료 · 콘솔에서 크레딧 충전 필요 (Haiku 5.5: 가장 저렴한 Claude 모델)',
+    keyUrl: 'https://platform.claude.com',
+    models: [CLAUDE_DEFAULT_MODEL],
+  },
 ]
 
 export function providerInfo(id: AiProvider): ProviderInfo {
@@ -47,15 +60,6 @@ export const SYSTEM_PROMPT = `당신은 한국어 블로그 글쓰기를 돕는 
 - "무엇을 도와드릴까요" 같은 인사말이나 사족은 붙이지 않고 결과만 씁니다.
 - 사용자가 쓴 글의 어투와 문체를 유지합니다.
 - 사실을 모르면 추측하지 말고 표시합니다.`
-
-export class AiError extends Error {
-  status?: number
-  constructor(message: string, status?: number) {
-    super(message)
-    this.name = 'AiError'
-    this.status = status
-  }
-}
 
 type StreamArgs = {
   settings: AiSettings
@@ -119,10 +123,10 @@ async function toAiError(response: Response, provider: AiProvider): Promise<AiEr
   const detail = await readErrorDetail(response)
 
   if (response.status === 401 || response.status === 403) {
-    return new AiError('API 키가 올바르지 않습니다. 설정에서 키를 다시 확인해 주세요.', response.status)
+    return new AiError(INVALID_KEY_MESSAGE, response.status)
   }
   if (response.status === 400 && provider === 'gemini' && /API key/i.test(detail)) {
-    return new AiError('API 키가 올바르지 않습니다. 설정에서 키를 다시 확인해 주세요.', 400)
+    return new AiError(INVALID_KEY_MESSAGE, 400)
   }
   if (response.status === 429) {
     return new AiError('무료 사용량 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.', 429)
@@ -269,6 +273,19 @@ export async function streamChat(args: StreamArgs): Promise<void> {
   if (!args.settings.apiKey.trim()) {
     throw new AiError('먼저 설정에서 API 키를 입력해 주세요.')
   }
-  if (args.settings.provider === 'gemini') return streamGemini(args)
-  return streamOpenAiCompatible(args, args.settings.provider)
+  const { provider } = args.settings
+  if (provider === 'gemini') return streamGemini(args)
+  if (provider === 'claude') {
+    // Anthropic SDK 는 커서 Claude 를 쓸 때만 불러온다. (다른 공급자 사용자의 첫 로딩을 무겁게 하지 않게)
+    const { streamClaude } = await import('./claudeChat')
+    return streamClaude({
+      apiKey: args.settings.apiKey,
+      model: args.settings.model || CLAUDE_DEFAULT_MODEL,
+      system: buildSystemPrompt(args.documentContext),
+      turns: args.turns,
+      signal: args.signal,
+      onDelta: args.onDelta,
+    })
+  }
+  return streamOpenAiCompatible(args, provider)
 }

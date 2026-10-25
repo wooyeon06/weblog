@@ -62,7 +62,7 @@ export function SettingsModal({ settings, onSave, onClose }: SettingsModalProps)
             className="input"
             type="password"
             autoComplete="off"
-            placeholder={draft.provider === 'gemini' ? 'AIza...' : 'sk-...'}
+            placeholder={draft.provider === 'gemini' ? 'AIza...' : draft.provider === 'claude' ? 'sk-ant-...' : 'sk-...'}
             value={draft.apiKey}
             onChange={(event) => setDraft({ ...draft, apiKey: event.target.value })}
           />

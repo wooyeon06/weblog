@@ -8,9 +8,10 @@ import { isInternalHref, isSafeHref, splitPageIcon } from './links'
  * 요소 뒤에 텍스트 노드가 없으면 브라우저는 커서를 요소 안에 두므로, 서식을 벗어나 칠 수 없다.
  * 화면 글자·마크다운 어디에도 세지 않는다.
  */
-export const CARET_ANCHOR = String.fromCharCode(0x200b)
+export const CARET_ANCHOR = String.fromCharCode(0x200b) //zero-width space
 export const stripAnchors = (text: string) => text.split(CARET_ANCHOR).join('')
 
+const isCode = (run: Run | undefined) => !!run?.marks.includes('code')
 /**
  * 조각 목록을 DOM 으로 그린다. 태그 구성은 읽기 화면(RichText)과 같다.
  *
@@ -24,11 +25,14 @@ export const stripAnchors = (text: string) => text.split(CARET_ANCHOR).join('')
  *   readSpans 는 어떤 순서로 감싸여 있어도 읽으므로 이 순서는 화면 모양만 정한다.
  * - ◇ 는 커서 자리(CARET_ANCHOR). 화면·마크다운 어디에도 없는 글자로, 코드 앞뒤에서 커서를 코드 밖에 둘 수 있게 한다.
  * - innerHTML 을 쓰지 않고 노드를 직접 만들므로 본문에 HTML 이 섞여 있어도 실행되지 않는다.
+ * 
+ * @param runs 조각 목록. parseInline 결과를 그대로 쓸 수 있다.
+ * @returns DOM 조각. DocumentFragment 는 화면에 붙이는 순간 안에 있던 자식들만 옮겨지고 fragment 자신은 사라진다.
+ *   화면에 태그로 존재하지 않으므로 스타일이나 클래스를 줄 수 없다.
  */
 export function buildNodes(runs: Run[]): DocumentFragment {
   //태그가 아닌 임시 바구니입니다. 붙이는 순간 안에 있던 자식들만 옮겨지고 fragment 자신은 사라집니다(빈 상태로 남음). 화면에 태그로 존재하지 않으니 스타일이나 클래스를 줄 수 없습니다.
   const fragment = document.createDocumentFragment()
-  const isCode = (run: Run | undefined) => !!run?.marks.includes('code')
   runs.forEach((run, index) => {
     // 인라인 코드 앞뒤에는 항상 커서 자리를 둔다.
     // 코드 끝과 바로 뒤 글자의 맨 앞은 화면상 같은 위치라, 브라우저는 글자를 칠 때 코드 끝(안)을 고른다.

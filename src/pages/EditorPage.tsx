@@ -83,19 +83,19 @@ const EditorProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   //=============================== Block [S] ===============================
-  const onChange = usePostStore((state) => state.updatePost);
+  const updatePost = usePostStore((state) => state.updatePost);
   
   //post 저장
   const patch = useCallback(
     (changes: Partial<Post>, post? : Post) => {
       if(!post) {
-        if(activePost) onChange({ ...activePost, ...changes, updatedAt: Date.now() })
+        if(activePost) updatePost({ ...activePost, ...changes, updatedAt: Date.now() })
       } else {
-        onChange({ ...post, ...changes, updatedAt: Date.now() })
+        updatePost({ ...post, ...changes, updatedAt: Date.now() })
       }
     },
     // activePost 가 빠지면 마운트 시점의 글을 계속 덮어써서 제목/태그가 되돌아간다.
-    [onChange, activePost],
+    [updatePost, activePost],
   )
 
   //block 저장

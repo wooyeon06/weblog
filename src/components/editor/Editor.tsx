@@ -8,6 +8,7 @@ import {
   numberedIndex,
   postWordCount
 } from '../../lib/blocks'
+import { Key } from '../../lib/keys'
 import { usePostStore } from '../../storage/usePostStore'
 import { BlockType, type Block, type Post } from '../../types'
 import { BlockGhost, BlockRow } from './block/BlockRow'
@@ -20,8 +21,9 @@ import { EditorContext } from '../../pages/EditorPage'
 import { useBlockUtils } from './block/useBlockUtils'
 import Tag from './Tag'
 import { useBlockDrag } from './block/useDragBlockRow'
+import Emoji from './emoji/Emoji';
 
-const EMOJIS = ['📝', '💡', '🚀', '🌱', '📚', '🧠', '☕', '🎨', '🔧', '🐛', '✨', '🗺️']
+
 
 export type EditorHandle = {
   /** AI 답변을 현재 커서 위치에 블록으로 삽입한다. */
@@ -56,11 +58,12 @@ export function Editor({ post, onBack, savedLabel, barStart, ref }: EditorProps)
   const { applySlashItem } = useBlockUtils();
 
   //Provider Context
-  const { activeId, setActiveId, slash, slashIndex, setSlashIndex, slashItems, closeSlash,
-    pendingFocusRef, focusBlock, inputs, commitBlocks, patch } = useContext(EditorContext);
+  const { activeId, setActiveId, 
+    slash, slashIndex, setSlashIndex, slashItems, closeSlash,
+    pendingFocusRef, focusBlock, 
+    inputs, commitBlocks, patch } = useContext(EditorContext);
 
   const [preview, setPreview] = useState(false)
-  const [emojiOpen, setEmojiOpen] = useState(false)
 
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const activeIdRef = useRef<string | null>(null)
@@ -182,32 +185,7 @@ export function Editor({ post, onBack, savedLabel, barStart, ref }: EditorProps)
 
       <div ref={scrollRef} className="editor__scroll">
         <div className="editor__page">
-          <div className="editor__emoji-row">
-            <button
-              type="button"
-              className="editor__emoji"
-              onClick={() => setEmojiOpen((open) => !open)}
-              aria-label="아이콘 변경"
-            >
-              {post.emoji}
-            </button>
-            {emojiOpen && (
-              <div className="emoji-picker">
-                {EMOJIS.map((emoji) => (
-                  <button
-                    type="button"
-                    key={emoji}
-                    onClick={() => {
-                      patch({ emoji })
-                      setEmojiOpen(false)
-                    }}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <Emoji post={post} />
 
           {preview ? (
             <>
